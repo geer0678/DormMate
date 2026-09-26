@@ -1,27 +1,31 @@
 import csv
-import html
 
 # ========================================
-# DormMate M2 数据分析
+# DormMate M2 数据分析（九状态版本）
 # ========================================
 
-# 温度统计
+# 初始化统计变量
 total_temperature = 0
 max_temperature = -999
 min_temperature = 999
 
-# 湿度统计
 total_humidity = 0
 max_humidity = -999
 min_humidity = 999
 
-# 状态统计
-normal_count = 0
-hot_count = 0
-cold_count = 0
-humid_count = 0
+status_counts = {
+    "正常": 0,
+    "偏冷": 0,
+    "偏热": 0,
+    "偏干": 0,
+    "偏湿": 0,
+    "偏冷偏干": 0,
+    "偏冷偏湿": 0,
+    "偏热偏干": 0,
+    "偏热偏湿": 0
+}
 
-# 总记录数
+attention_records = []
 count = 0
 
 
@@ -39,7 +43,6 @@ with open(
 
     for row in reader:
 
-        # 清理表头，避免 BOM 和空格问题
         clean_row = {}
 
         for key, value in row.items():
@@ -58,18 +61,15 @@ with open(
                     else value
                 )
 
-        temperature = int(
-            clean_row["temperature"]
+        temperature = float(clean_row["temperature"])
+        humidity = float(clean_row["humidity"])
+
+        advice = clean_row.get(
+            "advice",
+            "暂无建议"
         )
 
-        humidity = int(
-            clean_row["humidity"]
-        )
-
-        # --------------------------------
         # 温度统计
-        # --------------------------------
-
         total_temperature += temperature
 
         if temperature > max_temperature:
@@ -78,11 +78,7 @@ with open(
         if temperature < min_temperature:
             min_temperature = temperature
 
-
-        # --------------------------------
         # 湿度统计
-        # --------------------------------
-
         total_humidity += humidity
 
         if humidity > max_humidity:
@@ -92,111 +88,240 @@ with open(
             min_humidity = humidity
 
 
-        # --------------------------------
-        # 使用与网页一致的规则判断状态
-        # --------------------------------
+        # ========================================
+        # 九状态判断
+        # ========================================
 
         if temperature < 18:
-
-            cold_count += 1
+            temp_status = "偏冷"
 
         elif temperature >= 30:
-
-            hot_count += 1
-
-        elif humidity >= 75:
-
-            humid_count += 1
+            temp_status = "偏热"
 
         else:
+            temp_status = "正常"
 
-            normal_count += 1
 
+        if humidity < 40:
+            humidity_status = "偏干"
+
+        elif humidity >= 75:
+            humidity_status = "偏湿"
+
+        else:
+            humidity_status = "正常"
+
+
+        if temp_status == "正常" and humidity_status == "正常":
+            status = "正常"
+
+        elif temp_status == "偏冷" and humidity_status == "偏干":
+            status = "偏冷偏干"
+
+        elif temp_status == "偏冷" and humidity_status == "偏湿":
+            status = "偏冷偏湿"
+
+        elif temp_status == "偏热" and humidity_status == "偏干":
+            status = "偏热偏干"
+
+        elif temp_status == "偏热" and humidity_status == "偏湿":
+            status = "偏热偏湿"
+
+        elif temp_status == "偏冷":
+            status = "偏冷"
+
+        elif temp_status == "偏热":
+            status = "偏热"
+
+        elif humidity_status == "偏干":
+            status = "偏干"
+
+        elif humidity_status == "偏湿":
+            status = "偏湿"
+
+        else:
+            status = "正常"
+
+
+        status_counts[status] += 1
+
+
+        # 保存关注记录
+        if status != "正常":
+
+            attention_records.append(
+                {
+                    "time": clean_row.get("time", ""),
+                    "temperature": temperature,
+                    "humidity": humidity,
+                    "status": status,
+                    "advice": advice
+                }
+            )
 
         count += 1
 
 
 # ========================================
-# 2. 防止 CSV 没有数据
+# 2. 空数据检查
 # ========================================
 
 if count == 0:
 
-    print("CSV 中没有数据，无法分析。")
+    print("CSV中没有数据，无法分析")
 
     raise SystemExit
 
 
 # ========================================
-# 3. 计算统计结果
+# 3. 统计计算
 # ========================================
 
-average_temperature = (
-    total_temperature / count
-)
+average_temperature = total_temperature / count
+average_humidity = total_humidity / count
 
-average_humidity = (
-    total_humidity / count
-)
+abnormal_count = count - status_counts["正常"]
 
-abnormal_count = (
-    hot_count
-    + cold_count
-    + humid_count
-)
-
-abnormal_rate = (
-    abnormal_count
-    / count
-    * 100
-)
+abnormal_rate = abnormal_count / count * 100
 
 
 # ========================================
-# 4. 生成 TXT 报告
+# 4. TXT报告
 # ========================================
 
 report = f"""
 DormMate 宿舍环境数据分析报告
 ============================
 
-记录数量：{count}
+记录数量：
+{count}
 
 【温度统计】
-平均温度：{average_temperature:.2f} ℃
-最高温度：{max_temperature} ℃
-最低温度：{min_temperature} ℃
+
+平均温度：
+{average_temperature:.2f} ℃
+
+最高温度：
+{max_temperature} ℃
+
+最低温度：
+{min_temperature} ℃
+
 
 【湿度统计】
-平均湿度：{average_humidity:.2f} %
-最高湿度：{max_humidity} %
-最低湿度：{min_humidity} %
 
-【环境状态统计】
-正常：{normal_count} 次
-偏热：{hot_count} 次
-偏冷：{cold_count} 次
-偏湿：{humid_count} 次
+平均湿度：
+{average_humidity:.2f} %
 
-【异常情况】
-异常总次数：{abnormal_count} 次
-异常占比：{abnormal_rate:.2f} %
+最高湿度：
+{max_humidity} %
+
+最低湿度：
+{min_humidity} %
+
+
+【九状态统计】
+
 """
 
+for key, value in status_counts.items():
+
+    report += f"{key}：{value} 次\n"
+
+
+report += f"""
+
+【异常情况】
+
+异常次数：
+{abnormal_count} 次
+
+异常占比：
+{abnormal_rate:.2f}%
+
+
+【重点关注记录】
+
+"""
+
+
+for item in attention_records:
+
+    report += f"""
+时间：
+{item['time']}
+
+温度：
+{item['temperature']} ℃
+
+湿度：
+{item['humidity']} %
+
+状态：
+{item['status']}
+
+建议：
+{item['advice']}
+
+----------------------------
+
+"""
+
+
 print(report)
+
 
 with open(
     "analysis/report.txt",
     "w",
     encoding="utf-8"
-) as report_file:
+) as file:
 
-    report_file.write(report)
+    file.write(report)
 
 
 # ========================================
-# 5. 生成 HTML 数据分析报告
+# 5. 生成 HTML 报告
 # ========================================
+
+attention_html = ""
+
+if len(attention_records) == 0:
+
+    attention_html = """
+<tr>
+<td colspan="5">
+暂无异常记录
+</td>
+</tr>
+"""
+
+else:
+
+    for item in attention_records:
+
+        attention_html += f"""
+<tr>
+<td>{item['time']}</td>
+<td>{item['temperature']} ℃</td>
+<td>{item['humidity']} %</td>
+<td>{item['status']}</td>
+<td>{item['advice']}</td>
+</tr>
+"""
+
+
+status_html = ""
+
+for key, value in status_counts.items():
+
+    status_html += f"""
+<tr>
+<td>{key}</td>
+<td>{value}</td>
+</tr>
+"""
+
 
 html_report = f"""
 <!DOCTYPE html>
@@ -205,298 +330,408 @@ html_report = f"""
 
 <head>
 
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+<title>
+DormMate 数据分析报告
+</title>
 
-    <title>DormMate 数据分析报告</title>
 
-    <style>
+<style>
 
-        body {{
-            font-family:
-                Arial,
-                "Microsoft YaHei",
-                sans-serif;
+body {{
 
-            max-width: 1000px;
+font-family:
+Arial,
+"Microsoft YaHei",
+sans-serif;
 
-            margin: 40px auto;
+max-width:
+1100px;
 
-            padding: 20px;
+margin:
+40px auto;
 
-            background-color: #f5f7fb;
+padding:
+20px;
 
-            color: #333;
-        }}
+background:
+#f5f7fb;
 
-        h1 {{
-            text-align: center;
+color:
+#333;
 
-            color: #2563eb;
-        }}
+}}
 
-        .subtitle {{
-            text-align: center;
 
-            color: #666;
+h1 {{
 
-            margin-bottom: 30px;
-        }}
+text-align:center;
 
-        .summary {{
-            display: grid;
+color:#2563eb;
 
-            grid-template-columns:
-                repeat(4, 1fr);
+}}
 
-            gap: 15px;
 
-            margin-bottom: 30px;
-        }}
+.subtitle {{
 
-        .card {{
-            background: white;
+text-align:center;
 
-            padding: 20px;
+color:#666;
 
-            border-radius: 12px;
+margin-bottom:30px;
 
-            text-align: center;
+}}
 
-            box-shadow:
-                0 4px 12px
-                rgba(0, 0, 0, 0.08);
-        }}
 
-        .number {{
-            font-size: 25px;
+.section {{
 
-            font-weight: bold;
+background:white;
 
-            color: #2563eb;
-        }}
+padding:25px;
 
-        .label {{
-            margin-top: 8px;
+margin-bottom:25px;
 
-            color: #666;
-        }}
+border-radius:12px;
 
-        .section {{
-            background: white;
+box-shadow:
+0 4px 12px rgba(0,0,0,0.08);
 
-            padding: 25px;
+}}
 
-            margin-bottom: 25px;
 
-            border-radius: 12px;
+.summary {{
 
-            box-shadow:
-                0 4px 12px
-                rgba(0, 0, 0, 0.08);
-        }}
+display:grid;
 
-        table {{
-            width: 100%;
+grid-template-columns:
+repeat(4,1fr);
 
-            border-collapse: collapse;
-        }}
+gap:15px;
 
-        th,
-        td {{
-            padding: 12px;
+}}
 
-            border-bottom:
-                1px solid #ddd;
 
-            text-align: center;
-        }}
+.card {{
 
-        th {{
-            background-color: #f3f4f6;
-        }}
+background:white;
 
-        img {{
-            width: 100%;
+padding:20px;
 
-            height: auto;
-        }}
+border-radius:12px;
 
-        @media (max-width: 700px) {{
+text-align:center;
 
-            .summary {{
-                grid-template-columns:
-                    repeat(2, 1fr);
-            }}
+}}
 
-        }}
 
-    </style>
+.number {{
+
+font-size:25px;
+
+font-weight:bold;
+
+color:#2563eb;
+
+}}
+
+
+table {{
+
+width:100%;
+
+border-collapse:collapse;
+
+}}
+
+
+th,
+td {{
+
+padding:12px;
+
+border-bottom:
+1px solid #ddd;
+
+text-align:center;
+
+}}
+
+
+th {{
+
+background:#f3f4f6;
+
+}}
+
+
+img {{
+
+width:100%;
+
+}}
+
+</style>
 
 </head>
 
 
 <body>
 
-    <h1>
-        DormMate 宿舍环境数据分析报告
-    </h1>
 
-    <p class="subtitle">
-        基于 CSV 宿舍环境记录自动生成
-    </p>
+<h1>
+DormMate 宿舍环境数据分析报告
+</h1>
 
 
-    <div class="summary">
-
-        <div class="card">
-
-            <div class="number">
-                {count}
-            </div>
-
-            <div class="label">
-                数据记录
-            </div>
-
-        </div>
+<p class="subtitle">
+基于 CSV 宿舍环境记录自动生成
+</p>
 
 
-        <div class="card">
 
-            <div class="number">
-                {average_temperature:.2f} ℃
-            </div>
-
-            <div class="label">
-                平均温度
-            </div>
-
-        </div>
+<div class="summary">
 
 
-        <div class="card">
+<div class="card">
 
-            <div class="number">
-                {average_humidity:.2f} %
-            </div>
+<div class="number">
+{count}
+</div>
 
-            <div class="label">
-                平均湿度
-            </div>
+<div>
+数据记录
+</div>
 
-        </div>
-
-
-        <div class="card">
-
-            <div class="number">
-                {abnormal_rate:.2f} %
-            </div>
-
-            <div class="label">
-                异常占比
-            </div>
-
-        </div>
-
-    </div>
+</div>
 
 
-    <div class="section">
 
-        <h2>温湿度统计</h2>
+<div class="card">
 
-        <table>
+<div class="number">
+{average_temperature:.2f}℃
+</div>
 
-            <tr>
-                <th>项目</th>
-                <th>平均值</th>
-                <th>最高值</th>
-                <th>最低值</th>
-            </tr>
+<div>
+平均温度
+</div>
 
-            <tr>
-                <td>温度</td>
-                <td>{average_temperature:.2f} ℃</td>
-                <td>{max_temperature} ℃</td>
-                <td>{min_temperature} ℃</td>
-            </tr>
-
-            <tr>
-                <td>湿度</td>
-                <td>{average_humidity:.2f} %</td>
-                <td>{max_humidity} %</td>
-                <td>{min_humidity} %</td>
-            </tr>
-
-        </table>
-
-    </div>
+</div>
 
 
-    <div class="section">
 
-        <h2>环境状态统计</h2>
+<div class="card">
 
-        <table>
+<div class="number">
+{average_humidity:.2f}%
+</div>
 
-            <tr>
-                <th>状态</th>
-                <th>出现次数</th>
-            </tr>
+<div>
+平均湿度
+</div>
 
-            <tr>
-                <td>正常</td>
-                <td>{normal_count}</td>
-            </tr>
-
-            <tr>
-                <td>偏热</td>
-                <td>{hot_count}</td>
-            </tr>
-
-            <tr>
-                <td>偏冷</td>
-                <td>{cold_count}</td>
-            </tr>
-
-            <tr>
-                <td>偏湿</td>
-                <td>{humid_count}</td>
-            </tr>
-
-        </table>
-
-    </div>
+</div>
 
 
-    <div class="section">
 
-        <h2>温湿度变化趋势</h2>
+<div class="card">
 
-        <img
-            src="trend.png"
-            alt="DormMate 温湿度变化趋势图"
-        >
+<div class="number">
+{abnormal_rate:.2f}%
+</div>
 
-    </div>
+<div>
+异常占比
+</div>
+
+</div>
 
 
-    <div class="section">
+</div>
 
-        <h2>环境状态统计图</h2>
 
-        <img
-            src="status_chart.png"
-            alt="DormMate 环境状态统计图"
-        >
 
-    </div>
+
+
+<div class="section">
+
+<h2>
+温湿度统计
+</h2>
+
+
+<table>
+
+<tr>
+<th>项目</th>
+<th>平均值</th>
+<th>最高值</th>
+<th>最低值</th>
+</tr>
+
+
+<tr>
+
+<td>
+温度
+</td>
+
+<td>
+{average_temperature:.2f}℃
+</td>
+
+<td>
+{max_temperature}℃
+</td>
+
+<td>
+{min_temperature}℃
+</td>
+
+</tr>
+
+
+<tr>
+
+<td>
+湿度
+</td>
+
+<td>
+{average_humidity:.2f}%
+</td>
+
+<td>
+{max_humidity}%
+</td>
+
+<td>
+{min_humidity}%
+</td>
+
+</tr>
+
+
+</table>
+
+</div>
+
+
+
+
+
+<div class="section">
+
+<h2>
+九状态统计
+</h2>
+
+
+<table>
+
+<tr>
+
+<th>
+状态
+</th>
+
+<th>
+次数
+</th>
+
+</tr>
+
+
+{status_html}
+
+
+</table>
+
+</div>
+
+
+
+
+
+<div class="section">
+
+<h2>
+重点关注记录
+</h2>
+
+
+<table>
+
+<tr>
+
+<th>
+时间
+</th>
+
+<th>
+温度
+</th>
+
+<th>
+湿度
+</th>
+
+<th>
+状态
+</th>
+
+<th>
+建议
+</th>
+
+</tr>
+
+
+{attention_html}
+
+
+</table>
+
+</div>
+
+
+
+
+
+<div class="section">
+
+<h2>
+温湿度变化趋势
+</h2>
+
+
+<img
+src="trend.png"
+alt="trend"
+/>
+
+</div>
+
+
+
+
+
+<div class="section">
+
+<h2>
+环境状态统计图
+</h2>
+
+
+<img
+src="status_chart.png"
+alt="status"
+/>
+
+</div>
+
+
 
 </body>
 
@@ -505,18 +740,19 @@ html_report = f"""
 
 
 # ========================================
-# 6. 保存 HTML 报告
+# 6. 保存 HTML
 # ========================================
+
 
 with open(
     "analysis/report.html",
     "w",
     encoding="utf-8"
-) as html_file:
+) as file:
 
-    html_file.write(html_report)
+    file.write(html_report)
 
 
 print("分析完成！")
-print("TXT 报告：analysis/report.txt")
-print("HTML 报告：analysis/report.html")
+print("TXT报告：analysis/report.txt")
+print("HTML报告：analysis/report.html")

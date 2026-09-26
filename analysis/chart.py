@@ -47,11 +47,11 @@ with open("data/dormmate.csv", "r", encoding="utf-8-sig") as file:
         times.append(clean_row["time"])
 
         temperatures.append(
-            int(clean_row["temperature"])
+            float(clean_row["temperature"])
         )
 
         humidities.append(
-            int(clean_row["humidity"])
+            float(clean_row["humidity"])
         )
 
 
