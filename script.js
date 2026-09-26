@@ -64,6 +64,7 @@ function displayHistory() {
             <td>${record.temperature}℃</td>
             <td>${record.humidity}%</td>
             <td>${record.status}</td>
+            <td>${record.advice || "暂无建议"}</td> 
         `;
 
         // 添加到表格
@@ -421,14 +422,11 @@ analyzeButton.addEventListener(
         // =================================
 
         const record = {
-
             time: time,
-
             temperature: temperature,
-
             humidity: humidity,
-
-            status: status
+            status: status,
+            advice: advice
         };
 
 
@@ -476,7 +474,7 @@ exportButton.addEventListener(
 
         // CSV 表头
         let csv =
-            "time,temperature,humidity,status\n";
+            "time,temperature,humidity,status,advice\n";
 
 
         // 把每一条记录加入 CSV
@@ -487,7 +485,8 @@ exportButton.addEventListener(
                     `${record.time},` +
                     `${record.temperature},` +
                     `${record.humidity},` +
-                    `${record.status}\n`;
+                    `${record.status},` +
+                    `"${record.advice || "暂无建议"}"\n`;
             }
         );
 
