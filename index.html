@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>DormMate</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+</head>
+
+<body>
+
+    <!-- ========================= -->
+    <!-- 页面标题 -->
+    <!-- ========================= -->
+
+    <h1>DormMate</h1>
+    <p>宿舍环境监测系统</p>
+
+
+    <!-- ========================= -->
+    <!-- M1：数据输入 -->
+    <!-- ========================= -->
+
+    <div class="input-group">
+
+        <label for="temperature">
+            温度：
+        </label>
+
+        <input
+            id="temperature"
+            type="number"
+            placeholder="例如 31"
+        >
+
+        <span>℃</span>
+
+    </div>
+
+
+    <div class="input-group">
+
+        <label for="humidity">
+            湿度：
+        </label>
+
+        <input
+            id="humidity"
+            type="number"
+            placeholder="例如 78"
+        >
+
+        <span>%</span>
+
+    </div>
+
+
+    <button id="analyzeButton">
+        分析环境
+    </button>
+
+
+    <!-- 当前环境分析 -->
+
+    <div id="result">
+
+        <p>当前状态：等待分析</p>
+
+        <p>
+            建议：请输入温度和湿度
+        </p>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- M1：历史记录 -->
+    <!-- ========================= -->
+
+    <h2>历史记录</h2>
+
+    <button id="exportButton">
+        导出 CSV
+    </button>
+
+
+    <table id="historyTable">
+
+        <thead>
+
+            <tr>
+                <th>时间</th>
+                <th>温度</th>
+                <th>湿度</th>
+                <th>状态</th>
+            </tr>
+
+        </thead>
+
+        <tbody id="historyBody">
+        </tbody>
+
+    </table>
+
+
+    <!-- ========================= -->
+    <!-- M2：数据分析 -->
+    <!-- ========================= -->
+
+    <section class="analysis-section">
+
+        <h2>
+            📊 宿舍环境数据分析
+        </h2>
+
+        <p class="analysis-tip">
+            数据导出并运行 Python 分析后，
+            可在这里查看分析结果
+        </p>
+
+
+        <!-- 数据概览 -->
+
+        <div class="stats-grid">
+
+            <div class="stat-card">
+
+                <div class="stat-icon">
+                    📝
+                </div>
+
+                <div
+                    class="stat-number"
+                    id="analysisCount"
+                >
+                    --
+                </div>
+
+                <div class="stat-name">
+                    数据记录
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-icon">
+                    🌡️
+                </div>
+
+                <div
+                    class="stat-number"
+                    id="analysisTemp"
+                >
+                    --
+                </div>
+
+                <div class="stat-name">
+                    平均温度
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-icon">
+                    💧
+                </div>
+
+                <div
+                    class="stat-number"
+                    id="analysisHumidity"
+                >
+                    --
+                </div>
+
+                <div class="stat-name">
+                    平均湿度
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-icon">
+                    ⚠️
+                </div>
+
+                <div
+                    class="stat-number"
+                    id="analysisAbnormal"
+                >
+                    --
+                </div>
+
+                <div class="stat-name">
+                    异常占比
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Python 图表 -->
+
+        <div class="analysis-grid">
+
+            <div class="analysis-card">
+
+                <h3>
+                    🌡️ 温湿度变化趋势
+                </h3>
+
+                <img
+                    src="analysis/trend.png"
+                    alt="宿舍温湿度变化趋势图"
+                    class="analysis-image"
+                >
+
+            </div>
+
+
+            <div class="analysis-card">
+
+                <h3>
+                    🏠 环境状态统计
+                </h3>
+
+                <img
+                    src="analysis/status_chart.png"
+                    alt="宿舍环境状态统计图"
+                    class="analysis-image"
+                >
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ========================= -->
+    <!-- M3：Camera -->
+    <!-- ========================= -->
+
+    <section class="camera-section">
+
+        <h2>
+            📷 宿舍摄像头
+        </h2>
+
+        <p class="camera-description">
+            使用摄像头查看宿舍实时画面并拍照
+        </p>
+
+
+        <!-- 摄像头画面 -->
+
+        <div class="camera-box">
+
+            <video
+                id="cameraVideo"
+                autoplay
+                playsinline
+            >
+            </video>
+
+
+            <div
+                id="cameraPlaceholder"
+                class="camera-placeholder"
+            >
+
+                <div>
+                    📷
+                </div>
+
+                <p>
+                    摄像头尚未开启
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- Camera 按钮 -->
+
+        <div class="camera-buttons">
+
+            <button
+                id="startCameraBtn"
+                onclick="startCamera()"
+            >
+                打开摄像头
+            </button>
+
+
+            <button
+                id="captureButton"
+                onclick="capturePhoto()"
+            >
+                📸 拍照
+            </button>
+
+
+            <button
+                id="stopCameraBtn"
+                onclick="stopCamera()"
+            >
+                关闭摄像头
+            </button>
+
+        </div>
+
+
+        <p id="cameraStatus">
+            当前状态：未开启
+        </p>
+
+
+        <!-- ========================= -->
+        <!-- 拍照结果 -->
+        <!-- ========================= -->
+
+        <div
+            id="photoSection"
+            class="photo-section"
+        >
+
+            <h3>
+                📸 拍照结果
+            </h3>
+
+
+            <!-- Canvas 用来截取摄像头画面 -->
+
+            <canvas
+                id="photoCanvas"
+            >
+            </canvas>
+
+
+            <p id="photoStatus">
+                暂无照片
+            </p>
+
+        </div>
+
+    </section>
+
+    <!-- ========================= -->
+    <!-- M3：ASR 语音识别 -->
+    <!-- ========================= -->
+
+    <section class="voice-section">
+
+        <h2>
+            🎤 语音识别
+        </h2>
+
+        <p class="voice-description">
+            点击按钮后说话，DormMate 会将语音转换成文字
+        </p>
+
+        <button
+            id="startRecognitionBtn"
+            onclick="startSpeechRecognition()"
+        >
+            🎤 开始语音识别
+        </button>
+
+        <div class="voice-result">
+
+            <p>
+                <strong>识别结果：</strong>
+            </p>
+
+            <p id="speechResult">
+                暂无识别内容
+            </p>
+
+        </div>
+
+        <p id="speechStatus">
+            当前状态：等待语音输入
+        </p>
+
+    </section>
+
+    <!-- ========================= -->
+    <!-- M3：TTS 语音合成 -->
+    <!-- ========================= -->
+
+    <section class="tts-section">
+
+        <h2>🔊 语音播报</h2>
+
+        <p class="tts-description">
+            输入文字，让 DormMate 用语音读出来
+        </p>
+
+        <textarea
+            id="ttsText"
+            placeholder="请输入需要播报的内容"
+        >宿舍环境正常，请继续保持良好的通风。</textarea>
+
+        <div class="tts-buttons">
+
+            <button
+                id="speakButton"
+                onclick="speakText()"
+            >
+                🔊 开始播报
+            </button>
+
+            <button
+                id="stopSpeakButton"
+                onclick="stopSpeaking()"
+            >
+                ⏹ 停止播报
+            </button>
+
+        </div>
+
+        <p id="ttsStatus">
+            当前状态：等待播报
+        </p>
+
+    </section>
+
+    <!-- ========================= -->
+    <!-- JavaScript -->
+    <!-- ========================= -->
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

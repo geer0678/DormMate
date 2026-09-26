@@ -1,0 +1,303 @@
+
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>DormMate 数据分析报告</title>
+
+    <style>
+
+        body {
+            font-family:
+                Arial,
+                "Microsoft YaHei",
+                sans-serif;
+
+            max-width: 1000px;
+
+            margin: 40px auto;
+
+            padding: 20px;
+
+            background-color: #f5f7fb;
+
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+
+            color: #2563eb;
+        }
+
+        .subtitle {
+            text-align: center;
+
+            color: #666;
+
+            margin-bottom: 30px;
+        }
+
+        .summary {
+            display: grid;
+
+            grid-template-columns:
+                repeat(4, 1fr);
+
+            gap: 15px;
+
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+
+            padding: 20px;
+
+            border-radius: 12px;
+
+            text-align: center;
+
+            box-shadow:
+                0 4px 12px
+                rgba(0, 0, 0, 0.08);
+        }
+
+        .number {
+            font-size: 25px;
+
+            font-weight: bold;
+
+            color: #2563eb;
+        }
+
+        .label {
+            margin-top: 8px;
+
+            color: #666;
+        }
+
+        .section {
+            background: white;
+
+            padding: 25px;
+
+            margin-bottom: 25px;
+
+            border-radius: 12px;
+
+            box-shadow:
+                0 4px 12px
+                rgba(0, 0, 0, 0.08);
+        }
+
+        table {
+            width: 100%;
+
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+
+            border-bottom:
+                1px solid #ddd;
+
+            text-align: center;
+        }
+
+        th {
+            background-color: #f3f4f6;
+        }
+
+        img {
+            width: 100%;
+
+            height: auto;
+        }
+
+        @media (max-width: 700px) {
+
+            .summary {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+    <h1>
+        DormMate 宿舍环境数据分析报告
+    </h1>
+
+    <p class="subtitle">
+        基于 CSV 宿舍环境记录自动生成
+    </p>
+
+
+    <div class="summary">
+
+        <div class="card">
+
+            <div class="number">
+                10
+            </div>
+
+            <div class="label">
+                数据记录
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="number">
+                26.40 ℃
+            </div>
+
+            <div class="label">
+                平均温度
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="number">
+                72.10 %
+            </div>
+
+            <div class="label">
+                平均湿度
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="number">
+                70.00 %
+            </div>
+
+            <div class="label">
+                异常占比
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="section">
+
+        <h2>温湿度统计</h2>
+
+        <table>
+
+            <tr>
+                <th>项目</th>
+                <th>平均值</th>
+                <th>最高值</th>
+                <th>最低值</th>
+            </tr>
+
+            <tr>
+                <td>温度</td>
+                <td>26.40 ℃</td>
+                <td>31 ℃</td>
+                <td>17 ℃</td>
+            </tr>
+
+            <tr>
+                <td>湿度</td>
+                <td>72.10 %</td>
+                <td>88 %</td>
+                <td>60 %</td>
+            </tr>
+
+        </table>
+
+    </div>
+
+
+    <div class="section">
+
+        <h2>环境状态统计</h2>
+
+        <table>
+
+            <tr>
+                <th>状态</th>
+                <th>出现次数</th>
+            </tr>
+
+            <tr>
+                <td>正常</td>
+                <td>3</td>
+            </tr>
+
+            <tr>
+                <td>偏热</td>
+                <td>3</td>
+            </tr>
+
+            <tr>
+                <td>偏冷</td>
+                <td>1</td>
+            </tr>
+
+            <tr>
+                <td>偏湿</td>
+                <td>3</td>
+            </tr>
+
+        </table>
+
+    </div>
+
+
+    <div class="section">
+
+        <h2>温湿度变化趋势</h2>
+
+        <img
+            src="trend.png"
+            alt="DormMate 温湿度变化趋势图"
+        >
+
+    </div>
+
+
+    <div class="section">
+
+        <h2>环境状态统计图</h2>
+
+        <img
+            src="status_chart.png"
+            alt="DormMate 环境状态统计图"
+        >
+
+    </div>
+
+</body>
+
+</html>

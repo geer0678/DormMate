@@ -1,0 +1,662 @@
+/* ============================= */
+/* 页面基础样式 */
+/* ============================= */
+
+body {
+    font-family: Arial, sans-serif;
+
+    max-width: 1100px;
+
+    margin: 40px auto;
+
+    padding: 20px;
+
+    background-color: #fafafa;
+}
+
+
+/* ============================= */
+/* 标题 */
+/* ============================= */
+
+h1 {
+    color: #2563eb;
+}
+
+h2 {
+    margin-top: 30px;
+}
+
+
+/* ============================= */
+/* 输入区域 */
+/* ============================= */
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: inline-block;
+
+    width: 80px;
+}
+
+input {
+    box-sizing: border-box;
+
+    padding: 8px;
+
+    width: 100px;
+
+    height: 36px;
+}
+
+
+/* ============================= */
+/* 按钮 */
+/* ============================= */
+
+button {
+    margin-top: 10px;
+
+    padding: 10px 20px;
+
+    cursor: pointer;
+}
+
+
+/* ============================= */
+/* 当前环境结果 */
+/* ============================= */
+
+#result {
+    margin-top: 20px;
+
+    padding: 15px;
+
+    border-radius: 8px;
+
+    background-color: #f3f4f6;
+}
+
+
+/* ============================= */
+/* 历史记录表格 */
+/* ============================= */
+
+table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    margin-top: 10px;
+}
+
+th,
+td {
+    border: 1px solid #ddd;
+
+    padding: 8px;
+
+    text-align: center;
+}
+
+th {
+    background-color: #f3f4f6;
+}
+
+
+/* ============================= */
+/* Python 数据分析结果区域 */
+/* ============================= */
+
+.analysis-section {
+    margin-top: 50px;
+
+    padding: 30px;
+}
+
+.analysis-section h2 {
+    text-align: center;
+
+    margin-bottom: 10px;
+}
+
+.analysis-tip {
+    text-align: center;
+
+    color: #666;
+
+    margin-bottom: 25px;
+}
+
+
+/* ============================= */
+/* 数据概览卡片 */
+/* ============================= */
+
+.stats-grid {
+    display: grid;
+
+    grid-template-columns: repeat(4, 1fr);
+
+    gap: 18px;
+
+    margin: 25px auto 35px;
+
+    max-width: 1000px;
+}
+
+.stat-card {
+    background: white;
+
+    border-radius: 16px;
+
+    padding: 22px 15px;
+
+    text-align: center;
+
+    box-shadow:
+        0 6px 20px
+        rgba(0, 0, 0, 0.08);
+}
+
+.stat-icon {
+    font-size: 30px;
+
+    margin-bottom: 8px;
+}
+
+.stat-number {
+    font-size: 26px;
+
+    font-weight: bold;
+
+    color: #2563eb;
+
+    margin-bottom: 6px;
+}
+
+.stat-name {
+    color: #666;
+
+    font-size: 14px;
+}
+
+
+/* ============================= */
+/* 图表区域 */
+/* ============================= */
+
+.analysis-grid {
+    display: grid;
+
+    grid-template-columns: 1fr;
+
+    gap: 35px;
+}
+
+.analysis-card {
+    background: white;
+
+    border-radius: 16px;
+
+    padding: 20px;
+
+    box-shadow:
+        0 6px 20px
+        rgba(0, 0, 0, 0.08);
+}
+
+.analysis-card h3 {
+    text-align: center;
+
+    margin-bottom: 15px;
+}
+
+.analysis-image {
+    width: 100%;
+
+    height: auto;
+
+    display: block;
+
+    border-radius: 10px;
+}
+
+
+/* ============================= */
+/* 手机 / 小屏幕适配 */
+/* ============================= */
+
+@media (max-width: 800px) {
+
+    body {
+        margin: 20px auto;
+
+        padding: 15px;
+    }
+
+    .stats-grid {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+    .analysis-grid {
+        grid-template-columns: 1fr;
+    }
+}
+/* ======================================== */
+/* M3：摄像头区域 */
+/* ======================================== */
+
+.camera-section {
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 40px;
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    text-align: center;
+}
+
+
+/* 摄像头标题 */
+
+.camera-section h2 {
+    margin-bottom: 10px;
+    font-size: 28px;
+}
+
+
+/* 摄像头说明文字 */
+
+.camera-description {
+    color: #666;
+    margin-bottom: 25px;
+}
+
+
+/* 摄像头画面外框 */
+
+.camera-box {
+    position: relative;
+
+    width: 100%;
+    max-width: 720px;
+
+    aspect-ratio: 16 / 9;
+
+    margin: 0 auto 25px;
+
+    background: #111;
+
+    border-radius: 18px;
+
+    overflow: hidden;
+}
+
+
+/* 真正的摄像头画面 */
+
+#cameraVideo {
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    display: none;
+}
+
+
+/* 摄像头没有打开时的提示 */
+
+.camera-placeholder {
+    position: absolute;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+    align-items: center;
+
+    color: white;
+
+    background: #222;
+}
+
+
+/* 📷 图标 */
+
+.camera-placeholder div {
+    font-size: 60px;
+    margin-bottom: 10px;
+}
+
+
+/* 提示文字 */
+
+.camera-placeholder p {
+    color: #ddd;
+    font-size: 18px;
+}
+
+
+/* 两个按钮的区域 */
+
+.camera-buttons {
+    display: flex;
+
+    justify-content: center;
+
+    gap: 15px;
+
+    margin-top: 20px;
+}
+
+
+/* 摄像头按钮 */
+
+.camera-buttons button {
+    padding: 12px 25px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    font-size: 16px;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+
+/* 打开摄像头 */
+
+#startCameraBtn {
+    background: #2563eb;
+    color: white;
+}
+
+
+/* 鼠标放上去 */
+
+#startCameraBtn:hover {
+    background: #1d4ed8;
+}
+
+
+/* 关闭摄像头 */
+
+#stopCameraBtn {
+    background: #eeeeee;
+    color: #333;
+}
+
+
+/* 鼠标放上去 */
+
+#stopCameraBtn:hover {
+    background: #dddddd;
+}
+
+
+/* 摄像头状态 */
+
+#cameraStatus {
+    margin-top: 18px;
+
+    color: #666;
+
+    font-size: 15px;
+}
+
+
+/* 手机屏幕适配 */
+
+@media (max-width: 600px) {
+
+    .camera-section {
+        padding: 20px;
+    }
+
+    .camera-buttons {
+        flex-direction: column;
+    }
+
+    .camera-buttons button {
+        width: 100%;
+    }
+
+}
+/* ======================================== */
+/* M3：摄像头拍照结果 */
+/* ======================================== */
+
+#captureButton {
+    background: #16a34a;
+    color: white;
+}
+
+#captureButton:hover {
+    background: #15803d;
+}
+
+.photo-section {
+    max-width: 720px;
+    margin: 30px auto 0;
+}
+
+.photo-section h3 {
+    margin-bottom: 15px;
+}
+
+#photoCanvas {
+    display: none;
+
+    width: 100%;
+    height: auto;
+
+    border-radius: 18px;
+
+    background: #222;
+}
+
+#photoStatus {
+    color: #666;
+    margin-top: 12px;
+}
+/* ======================================== */
+/* M3：ASR 语音识别 */
+/* ======================================== */
+
+.voice-section {
+    max-width: 1000px;
+
+    margin: 40px auto;
+
+    padding: 40px;
+
+    background: white;
+
+    border-radius: 24px;
+
+    box-shadow:
+        0 10px 30px
+        rgba(0, 0, 0, 0.08);
+
+    text-align: center;
+}
+
+
+.voice-section h2 {
+    margin-bottom: 10px;
+
+    font-size: 28px;
+}
+
+
+.voice-description {
+    color: #666;
+
+    margin-bottom: 25px;
+}
+
+
+#startRecognitionBtn {
+    padding: 12px 25px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #7c3aed;
+
+    color: white;
+
+    font-size: 16px;
+
+    cursor: pointer;
+}
+
+
+#startRecognitionBtn:hover {
+    background: #6d28d9;
+}
+
+
+.voice-result {
+    max-width: 700px;
+
+    min-height: 100px;
+
+    margin: 25px auto 0;
+
+    padding: 20px;
+
+    background: #f5f3ff;
+
+    border-radius: 14px;
+
+    text-align: left;
+}
+
+
+#speechResult {
+    margin-top: 10px;
+
+    font-size: 18px;
+
+    line-height: 1.6;
+}
+
+
+#speechStatus {
+    margin-top: 15px;
+
+    color: #666;
+}
+/* ======================================== */
+/* M3：TTS 语音合成 */
+/* ======================================== */
+
+.tts-section {
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 40px;
+
+    background: white;
+    border-radius: 24px;
+
+    box-shadow:
+        0 10px 30px
+        rgba(0, 0, 0, 0.08);
+
+    text-align: center;
+}
+
+.tts-section h2 {
+    margin-bottom: 10px;
+    font-size: 28px;
+}
+
+.tts-description {
+    color: #666;
+    margin-bottom: 25px;
+}
+
+#ttsText {
+    width: 90%;
+    min-height: 120px;
+
+    padding: 18px;
+
+    border: 1px solid #ddd;
+    border-radius: 14px;
+
+    font-size: 17px;
+    line-height: 1.6;
+
+    resize: vertical;
+
+    outline: none;
+}
+
+#ttsText:focus {
+    border-color: #2563eb;
+}
+
+.tts-buttons {
+    margin-top: 20px;
+
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+#speakButton {
+    padding: 12px 25px;
+
+    border: none;
+    border-radius: 10px;
+
+    background: #2563eb;
+    color: white;
+
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#speakButton:hover {
+    background: #1d4ed8;
+}
+
+#stopSpeakButton {
+    padding: 12px 25px;
+
+    border: none;
+    border-radius: 10px;
+
+    background: #ef4444;
+    color: white;
+
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#stopSpeakButton:hover {
+    background: #dc2626;
+}
+
+#ttsStatus {
+    margin-top: 20px;
+    color: #666;
+}
