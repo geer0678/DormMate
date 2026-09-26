@@ -234,100 +234,159 @@ analyzeButton.addEventListener(
             return;
         }
 
-
         // =================================
-        // DormMate 环境判断规则
+        // DormMate 环境判断规则（增强版）
         // =================================
 
         let status;
-
         let advice;
 
 
         // ================================
-        // 偏冷
+        // 温度等级
         // ================================
+
+        let temperatureLevel;
 
         if (temperature < 18) {
 
-            status = "偏冷";
-
-            advice =
-                "当前温度较低，建议适当保暖。";
+            temperatureLevel = "cold";
 
         }
-
-
-        // ================================
-        // 偏热
-        // ================================
 
         else if (temperature >= 30) {
 
-            status = "偏热";
+            temperatureLevel = "hot";
 
+        }
 
-            // 高温 + 高湿
-            if (humidity >= 75) {
+        else {
 
-                advice =
-                    "当前温湿度均较高，环境可能闷热，建议加强通风并降低湿度。";
-
-            }
-
-
-            // 高温但湿度正常
-            else {
-
-                advice =
-                    "当前温度较高，建议保持空气流通。";
-
-            }
+            temperatureLevel = "normal";
 
         }
 
 
+
         // ================================
-        // 偏湿
+        // 湿度等级
         // ================================
+
+        let humidityLevel;
+
+
+        if (humidity < 40) {
+
+            humidityLevel = "dry";
+
+        }
 
         else if (humidity >= 75) {
 
-            status = "偏湿";
+            humidityLevel = "humid";
 
-            advice =
-                "当前空气湿度较高，建议通风或进行除湿。";
+        }
+
+        else {
+
+            humidityLevel = "normal";
 
         }
 
 
+
         // ================================
-        // 正常
+        // 状态判断（保持任务书四状态）
         // ================================
+
+
+        if (temperatureLevel === "cold") {
+
+            status = "偏冷";
+
+        }
+
+        else if (temperatureLevel === "hot") {
+
+            status = "偏热";
+
+        }
+
+        else if (humidityLevel === "humid") {
+
+            status = "偏湿";
+
+        }
 
         else {
 
             status = "正常";
 
-
-            // 干燥提醒（增强功能）
-            if (humidity < 40) {
-
-                advice =
-                    "当前温湿度基本正常，但空气偏干，可以适当增加湿度。";
-
-            }
-
-            else {
-
-                advice =
-                    "当前温湿度适宜，请继续保持良好通风。";
-
-            }
-
         }
 
 
+
+        // ================================
+        // 九种组合建议
+        // ================================
+
+
+        let environmentKey =
+            temperatureLevel + "_" + humidityLevel;
+
+
+
+        const adviceMap = {
+
+
+            // 偏冷
+            "cold_dry":
+                "当前环境温度较低且空气偏干，建议注意保暖，并适当增加空气湿度。",
+
+
+            "cold_normal":
+                "当前温度偏低，湿度适宜，建议增加保暖措施。",
+
+
+            "cold_humid":
+                "当前环境低温高湿，可能产生阴冷感，建议加强保暖并保持通风。",
+
+
+
+            // 正常温度
+            "normal_dry":
+                "当前温度适宜，但空气偏干，建议适当增加环境湿度。",
+
+
+            "normal_normal":
+                "当前温湿度适宜，请继续保持良好通风。",
+
+
+            "normal_humid":
+                "当前温度适宜，但空气湿度较高，建议加强通风或进行除湿。",
+
+
+
+            // 偏热
+            "hot_dry":
+                "当前温度较高且空气偏干，建议适当降温，同时避免环境过度干燥。",
+
+
+            "hot_normal":
+                "当前温度较高，湿度正常，建议保持空气流通并降低室内温度。",
+
+
+            "hot_humid":
+                "当前环境高温高湿，容易产生闷热感，建议加强通风并降低湿度。"
+
+        };
+
+
+        // 根据组合获取建议
+
+        advice = adviceMap[environmentKey];
+
+        
         // =================================
         // 显示当前分析结果
         // =================================
