@@ -1,0 +1,8 @@
+<view class="chart-wrap">
+  <view class="legend"><text class="temperature">● 温度 ℃（左轴 0–50）</text><text class="humidity">● 湿度 %（右轴 0–100）</text></view>
+  <canvas type="2d" id="trend" class="chart" aria-label="按时间顺序展示最近30条温湿度变化趋势" />
+  <view wx:if="{{!records.length}}" class="empty">保存环境记录后显示趋势</view>
+  <view wx:if="{{chartError}}" class="empty">{{chartError}}</view>
+  <view class="caption">最近 {{records.length}} 条，按时间从早到晚；完整数据可在记录页导出</view>
+</view>
+

@@ -1,0 +1,127 @@
+<view class="shell">
+  <view class="hero">
+    <view class="brand">DormMate</view>
+    <view class="subtitle">宿舍环境监测 · 记录每一次舒适变化</view>
+  </view>
+  <view class="tabs">
+    <button wx:for="{{tabs}}" wx:key="key" class="tab {{activeTab === item.key ? 'selected' : ''}}" data-tab="{{item.key}}" bindtap="setTab">{{item.label}}</button>
+  </view>
+  <view wx:if="{{error}}" class="message error" role="alert">{{error}}</view>
+  <view wx:if="{{notice}}" class="message">{{notice}}</view>
+
+  <block wx:if="{{activeTab === 'environment'}}">
+    <view class="card">
+      <view class="card-title">环境输入</view>
+      <view class="field-row">
+        <view class="field"><label class="field-label" for="temperature-input">温度（℃）</label><input id="temperature-input" type="digit" value="{{temperatureInput}}" placeholder="例如 31" bindinput="inputTemperature" maxlength="12" /></view>
+        <view class="field"><label class="field-label" for="humidity-input">湿度（%）</label><input id="humidity-input" type="digit" value="{{humidityInput}}" placeholder="例如 78" bindinput="inputHumidity" maxlength="12" /></view>
+      </view>
+      <button class="primary" bindtap="updateEnvironment">分析环境并保存</button>
+      <view class="hint">温度 0–50℃，湿度 0–100%，支持小数</view>
+      <view class="switch-row"><text>分析后自动播报建议</text><switch checked="{{autoSpeak}}" bindchange="toggleAutoSpeak" color="#2563eb" aria-label="分析后自动播报建议" /></view>
+    </view>
+    <view class="card">
+      <view class="card-title">当前环境</view><view class="time">更新时间：{{time}}</view>
+      <view class="metrics">
+        <view class="metric"><view class="label">温度</view><view class="metric-value">{{temperature}}<text>℃</text></view></view>
+        <view class="metric"><view class="label">湿度</view><view class="metric-value">{{humidity}}<text>%</text></view></view>
+      </view>
+      <view class="status-row"><text class="label">环境状态</text><text class="status {{tone}}">{{status}}</text></view>
+      <view class="advice">{{advice}}</view>
+      <view class="actions" wx:if="{{stats.count}}"><button bindtap="speakAdvice">播放建议</button><button bindtap="stopSpeaking">停止播放</button></view>
+      <view wx:if="{{stats.count}}" class="hint">{{ttsStatus}}</view>
+    </view>
+    <view class="summary-line">已记录 {{stats.count}} 次 · 正常 {{stats.normal}} 次 · 需关注 {{stats.abnormal}} 次</view>
+  </block>
+
+  <block wx:elif="{{activeTab === 'history'}}">
+    <view class="section-heading"><view class="section-title">历史记录</view><text class="count">{{stats.count}} 条</text></view>
+    <button bindtap="loadCloudHistory">刷新共享历史</button>
+    <view class="card compact">
+      <view class="actions"><button class="primary" loading="{{exportBusy}}" disabled="{{exportBusy || !stats.count}}" bindtap="exportCSV">导出 CSV</button><button bindtap="copyCSV" disabled="{{!stats.count}}">复制 CSV</button></view>
+      <view class="actions"><button bindtap="importFile" loading="{{importBusy}}" disabled="{{importBusy}}">选择文件导入</button><button bindtap="toggleImport">粘贴数据</button></view>
+      <button class="text-button" bindtap="importWebSnapshot">导入网页已有 {{webRecordCount}} 条记录</button>
+      <view class="hint">导入 CSV 或 JSON。相同时间与数值会去重，旧状态按统一规则重算。</view>
+      <view wx:if="{{importOpen}}" class="paste-box">
+        <textarea value="{{importText}}" bindinput="inputImport" placeholder="粘贴网页导出的 CSV 或历史 JSON" maxlength="1000000" auto-height />
+        <button class="primary" bindtap="importPasted">检查并导入</button>
+      </view>
+      <view wx:if="{{exportedPath}}" class="export-box">
+        <view class="filename">{{exportedName}}</view>
+        <button class="primary" bindtap="shareExport">分享文件</button>
+        <view class="hint">选择文件传输助手，可在电脑上保存并交给 Python 分析。</view>
+      </view>
+    </view>
+    <view class="switch-row"><text>只看需关注记录（{{historyTotal}} 条）</text><switch checked="{{onlyAbnormal}}" bindchange="filterHistory" color="#2563eb" aria-label="只看需关注记录" /></view>
+    <view wx:if="{{!history.length}}" class="empty">暂无符合条件的记录。输入一组数据，或导入网页历史。</view>
+    <view wx:for="{{history}}" wx:key="id" class="history-card">
+      <view class="history-top"><text>{{item.time}} · {{item.source === 'web' ? 'Web' : '小程序'}}</text><text class="status {{item.status === '正常' ? 'normal' : 'attention'}}">{{item.status}}</text></view>
+      <view class="history-values">{{item.temperature}}℃ <text>温度</text><text class="separator">/</text> {{item.humidity}}% <text>湿度</text></view>
+      <view class="history-advice">{{item.advice}}</view>
+    </view>
+    <button wx:if="{{hasMore}}" bindtap="loadMore" class="load-more">加载更多（已显示 {{history.length}} 条）</button>
+  </block>
+
+  <block wx:elif="{{activeTab === 'analysis'}}">
+    <view class="section-title">宿舍环境数据分析</view>
+    <view class="source-note">来源：本机已保存或导入的 {{stats.count}} 条记录</view>
+    <view class="stats">
+      <view class="stat"><view class="stat-value">{{stats.count}}<text>条</text></view><view class="label">数据记录</view></view>
+      <view class="stat"><view class="stat-value">{{stats.abnormalRate}}<text>%</text></view><view class="label">需关注占比</view></view>
+      <view class="stat"><view class="stat-value">{{stats.averageTemperature}}<text>℃</text></view><view class="label">平均温度</view><view class="stat-range">{{stats.minTemperature}} ～ {{stats.maxTemperature}}℃</view></view>
+      <view class="stat"><view class="stat-value">{{stats.averageHumidity}}<text>%</text></view><view class="label">平均湿度</view><view class="stat-range">{{stats.minHumidity}} ～ {{stats.maxHumidity}}%</view></view>
+    </view>
+    <view class="card chart-card"><view class="card-title">温湿度变化趋势</view><trend-chart records="{{trend}}" /></view>
+    <view class="card">
+      <view class="card-title">环境状态统计</view>
+      <view wx:for="{{stats.distribution}}" wx:key="status" class="distribution-row">
+        <view class="distribution-label">{{item.status}}</view>
+        <view class="bar-track"><view class="bar {{item.status === '正常' ? 'green-bar' : ''}}" style="width: {{item.width}}%;"></view></view>
+        <view class="distribution-value">{{item.count}}条</view>
+      </view>
+      <view class="hint">正常 {{stats.normal}} 条 · 需关注 {{stats.abnormal}} 条</view>
+    </view>
+    <button class="primary" disabled="{{!stats.count || exportBusy}}" loading="{{exportBusy}}" bindtap="exportReport">导出完整分析报告 TXT</button>
+    <view class="hint">报告包含均值、极值、九状态数量和全部关注记录。</view>
+  </block>
+
+  <block wx:elif="{{activeTab === 'interaction'}}">
+    <view class="section-title">摄像头与语音</view>
+    <view class="card">
+      <view class="card-title">宿舍摄像头</view>
+      <camera wx:if="{{cameraOpen}}" class="camera" device-position="{{cameraPosition}}" flash="off" bindinitdone="cameraReady" binderror="cameraError" bindstop="cameraStopped" />
+      <view wx:else class="camera-placeholder"><text class="camera-symbol">◎</text><text>打开摄像头，查看并记录宿舍画面</text></view>
+      <view class="actions"><button bindtap="startCamera" disabled="{{cameraOpen}}">打开</button><button bindtap="capturePhoto" disabled="{{!cameraReady || takingPhoto}}" loading="{{takingPhoto}}">拍照</button><button bindtap="stopCamera" disabled="{{!cameraOpen}}">关闭</button></view>
+      <button wx:if="{{cameraOpen}}" class="text-button" bindtap="flipCamera">切换前后摄像头</button>
+      <view class="hint">{{cameraStatus}}</view>
+      <image wx:if="{{photoPath}}" class="photo" src="{{photoPath}}" mode="widthFix" bindtap="previewPhoto" />
+      <button wx:if="{{photoPath}}" bindtap="savePhoto" disabled="{{savingPhoto}}" loading="{{savingPhoto}}">保存照片到相册</button>
+    </view>
+    <view class="card">
+      <view class="card-title">语音识别</view>
+      <view class="hint left">点击开始，说完后点击结束；最长录音30秒。</view>
+      <view wx:if="{{!speechAvailable}}" class="service-note">语音服务待开通。环境建议离线播报已可用。</view>
+      <view class="actions"><button class="primary" bindtap="startRecognition" disabled="{{recognitionState !== 'idle'}}">开始识别</button><button bindtap="stopRecognition" disabled="{{recognitionState !== 'recording'}}">结束识别</button></view>
+      <view class="speech-result"><view class="label">识别结果</view><text selectable>{{speechResult || '暂无识别内容'}}</text></view>
+      <view class="hint left">{{speechStatus}}</view>
+      <button class="text-button" bindtap="showVoiceHelp">语音服务说明</button>
+    </view>
+    <view class="card">
+      <view class="card-title">语音播报</view>
+      <textarea class="tts-input" value="{{ttsText}}" bindinput="inputTTS" maxlength="500" placeholder="输入需要播报的文字（最多500字）" />
+      <view class="actions"><button class="primary" bindtap="speakText">开始播报</button><button bindtap="stopSpeaking">停止播报</button></view>
+      <button class="text-button" bindtap="speakAdvice">播放最近一次环境建议</button>
+      <view class="hint left">{{ttsStatus}}</view>
+    </view>
+    <view class="card">
+      <view class="card-title">操作指令</view>
+      <view class="command-list">分析环境、检测环境、查看历史记录、导出数据、打开摄像头、关闭摄像头、播放建议、停止播放。</view>
+      <view class="hint left">也可输入文字指令。分析时使用“环境”页已填写的温湿度。</view>
+      <input class="command-input" value="{{commandText}}" bindinput="inputCommand" placeholder="例如：查看历史记录" maxlength="100" />
+      <button bindtap="runTypedCommand">执行文字指令</button>
+    </view>
+    <button class="text-button" bindtap="openSettings">权限设置</button>
+    <view class="hint">摄像头和麦克风仅在主动开启时使用，离开小程序即停止。</view>
+  </block>
+</view>
+

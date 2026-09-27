@@ -1,0 +1,13 @@
+{
+  "name": "environmentRecords",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DormMate shared environment history Cloud Function",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "wx-server-sdk": "4.0.2"
+  }
+}

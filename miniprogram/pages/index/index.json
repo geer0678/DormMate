@@ -1,0 +1,5 @@
+{
+  "usingComponents": { "trend-chart": "/components/trend-chart/index" },
+  "navigationBarTitleText": "DormMate"
+}
+

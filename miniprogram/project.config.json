@@ -1,0 +1,98 @@
+{
+  "compileType": "miniprogram",
+  "libVersion": "trial",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": ".migration-backup"
+      },
+      {
+        "type": "folder",
+        "value": "artifacts"
+      },
+      {
+        "type": "folder",
+        "value": "tests"
+      },
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "folder",
+        "value": "node_modules"
+      },
+      {
+        "type": "file",
+        "value": "README.md"
+      },
+      {
+        "type": "file",
+        "value": "package.json"
+      },
+      {
+        "type": "file",
+        "value": "package-lock.json"
+      },
+      {
+        "type": "file",
+        "value": "test.txt"
+      },
+      {
+        "type": "file",
+        "value": "plan-12.png"
+      },
+      {
+        "type": "file",
+        "value": "plan-13.png"
+      },
+      {
+        "type": "file",
+        "value": "plan-14.png"
+      },
+      {
+        "type": "file",
+        "value": "plan-15.png"
+      },
+      {
+        "type": "file",
+        "value": "plan-16.png"
+      }
+    ],
+    "include": []
+  },
+  "setting": {
+    "coverView": true,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "enhance": true,
+    "showShadowRootInWxmlPanel": true,
+    "packNpmRelationList": [],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "minifyWXSS": true,
+    "localPlugins": false,
+    "condition": false,
+    "compileWorklet": false,
+    "disableUseStrict": false,
+    "minifyWXML": true,
+    "useCompilerPlugins": false
+  },
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "auto",
+    "tabSize": 2
+  },
+  "appid": "wxf348878e62421e43",
+  "simulatorPluginLibVersion": {},
+  "isGameTourist": false
+}
