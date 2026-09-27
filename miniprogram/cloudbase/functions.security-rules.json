@@ -1,0 +1,11 @@
+{
+  "*": {
+    "invoke": false
+  },
+  "speechRecognition": {
+    "invoke": "auth != null"
+  },
+  "environmentRecords": {
+    "invoke": "auth != null"
+  }
+}

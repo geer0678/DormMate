@@ -1,0 +1,27 @@
+{
+  "environmentId": "cloudbase-d6g6fprx873111e6a",
+  "collection": "environment_records",
+  "securityRules": {
+    "read": "auth != null",
+    "write": false
+  },
+  "indexes": [
+    {
+      "name": "recordId_unique",
+      "fields": [{ "name": "recordId", "direction": "ASC" }],
+      "unique": true
+    },
+    {
+      "name": "createdAt_recordId_order",
+      "fields": [
+        { "name": "createdAt", "direction": "DESC" },
+        { "name": "recordId", "direction": "ASC" }
+      ],
+      "unique": false
+    }
+  ],
+  "cloudFunction": {
+    "name": "environmentRecords",
+    "securityRulesFile": "cloudbase/functions.security-rules.json"
+  }
+}
