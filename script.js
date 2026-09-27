@@ -51,12 +51,29 @@ function displayHistory() {
             <td>${record.humidity}%</td>
             <td>${record.status}</td>
             <td>${record.advice || "暂无建议"}</td>
+            <td>${record.source === 'web' ? 'Web' : record.source === 'miniprogram' ? '小程序' : '本地缓存'}</td>
         `;
 
         historyBody.appendChild(row);
 
     });
 
+}
+
+async function refreshSharedHistory() {
+    const syncStatus = document.getElementById('syncStatus');
+    try {
+        const shared = await getCloudHistory();
+        history.splice(0, history.length, ...shared);
+        localStorage.setItem('dormMateHistory', JSON.stringify(history));
+        displayHistory();
+        updateAnalysisOverview();
+        syncStatus.textContent = `共享历史已更新：${shared.length} 条`;
+        return true;
+    } catch (error) {
+        syncStatus.textContent = `云端刷新失败，显示本机缓存：${error.message}`;
+        return false;
+    }
 }
 
 
@@ -166,7 +183,7 @@ function updateAnalysisOverview() {
 
 analyzeButton.addEventListener(
 "click",
-function(){
+async function(){
 
     const temperature =
         Number(
@@ -384,23 +401,21 @@ function(){
 
 
 
-    history.push(record);
-
-
-
-    localStorage.setItem(
-
-        "dormMateHistory",
-
-        JSON.stringify(history)
-
-    );
-
-
-
-    displayHistory();
-
-    updateAnalysisOverview();
+    record.id = 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
+    try {
+        await saveCloudRecord(record);
+    } catch (error) {
+        document.getElementById('syncStatus').textContent = `云端保存失败，本次记录未保存：${error.message}`;
+        return;
+    }
+    const refreshed = await refreshSharedHistory();
+    if (!refreshed) {
+        history.push({ ...record, source: 'web' });
+        localStorage.setItem('dormMateHistory', JSON.stringify(history));
+        displayHistory();
+        updateAnalysisOverview();
+        document.getElementById('syncStatus').textContent = '云端已保存，历史刷新失败；请稍后点“刷新共享历史”';
+    }
 
 
 });
@@ -421,7 +436,7 @@ function(){
 
 
 
-    history.forEach(function(record){
+    history.slice().reverse().forEach(function(record){
 
 
         csv +=
@@ -513,6 +528,8 @@ function(){
 displayHistory();
 
 updateAnalysisOverview();
+document.getElementById('refreshCloudButton').addEventListener('click', refreshSharedHistory);
+refreshSharedHistory();
 
 
 
