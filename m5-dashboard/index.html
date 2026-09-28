@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e8efed">
+  <title>DormMate · M5 Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script defer src="../miniprogram/utils/dormmate.js"></script>
+  <script defer src="../miniprogram/utils/mqttMessage.js"></script>
+  <script defer src="../miniprogram/utils/mqttSimulation.js"></script>
+  <script defer src="dashboardStore.js"></script>
+  <script defer src="dashboard.js"></script>
+</head>
+<body>
+  <div class="dashboard-shell">
+    <header class="topbar">
+      <a class="brand" href="../index.html" aria-label="DormMate 首页">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <span><strong>DormMate</strong><small>宿舍环境观测</small></span>
+      </a>
+      <div class="topbar-meta">
+        <span class="phase-label">M5 · 实时环境</span>
+        <span class="mode-indicator"><i aria-hidden="true"></i><span id="modeLabel">模拟数据模式</span></span>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">房间传感器</p>
+          <h1 id="page-title">环境正在变化</h1>
+        </div>
+        <p class="intro-note">本地模拟样本持续刷新，切换节点查看各自的记录与趋势。</p>
+      </section>
+
+      <nav class="node-switcher" id="nodeSwitcher" aria-label="选择监测节点"></nav>
+
+      <section class="reading-panel" aria-labelledby="nodeHeading">
+        <div class="reading-lead">
+          <div class="current-heading">
+            <p class="eyebrow">当前节点</p>
+            <h2 id="nodeHeading">dorm-a</h2>
+          </div>
+          <p class="status-readout" id="statusValue" aria-live="polite">等待数据</p>
+          <p class="reading-time">记录时间 <time id="recordTime">--</time></p>
+        </div>
+        <div class="measurement temperature-measure" aria-label="当前温度">
+          <span class="measure-label"><i aria-hidden="true"></i>温度</span>
+          <p><strong id="temperatureValue">--</strong><span>℃</span></p>
+        </div>
+        <div class="measurement humidity-measure" aria-label="当前湿度">
+          <span class="measure-label"><i aria-hidden="true"></i>湿度</span>
+          <p><strong id="humidityValue">--</strong><span>%</span></p>
+        </div>
+      </section>
+
+      <section class="trend-section" aria-labelledby="trendHeading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">节点记录</p>
+            <h2 id="trendHeading">温湿度趋势</h2>
+          </div>
+          <p class="history-count" id="historyCount">0 / 50 条记录</p>
+        </div>
+        <div class="chart-grid">
+          <figure class="chart-panel temperature-chart">
+            <figcaption><span>温度</span><strong id="temperatureRange">--</strong></figcaption>
+            <canvas id="temperatureChart" aria-label="当前节点温度趋势图" role="img"></canvas>
+          </figure>
+          <figure class="chart-panel humidity-chart">
+            <figcaption><span>湿度</span><strong id="humidityRange">--</strong></figcaption>
+            <canvas id="humidityChart" aria-label="当前节点湿度趋势图" role="img"></canvas>
+          </figure>
+        </div>
+        <p class="chart-footnote" id="feedStatus" aria-live="polite">历史只保存在当前页面；每个节点最多保留 50 条记录。</p>
+      </section>
+    </main>
+
+    <footer class="footer-line"><span>数据按节点分别维护</span><span>DormMate · M5</span></footer>
+  </div>
+</body>
+</html>

@@ -111,6 +111,7 @@
         seen.add(recordId)
         return true
       },
+      forget(recordId) { return seen.delete(recordId) },
       clear() { seen.clear() },
       get size() { return seen.size }
     }
