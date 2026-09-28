@@ -9,7 +9,10 @@
   <script defer src="../miniprogram/utils/dormmate.js"></script>
   <script defer src="../miniprogram/utils/mqttMessage.js"></script>
   <script defer src="../miniprogram/utils/mqttSimulation.js"></script>
+  <script defer src="../miniprogram/node_modules/mqtt/dist/mqtt.min.js"></script>
   <script defer src="dashboardStore.js"></script>
+  <script defer src="mqttTransport.js"></script>
+  <script defer src="dashboardFeed.js"></script>
   <script defer src="dashboard.js"></script>
 </head>
 <body>
@@ -21,7 +24,11 @@
       </a>
       <div class="topbar-meta">
         <span class="phase-label">M5 · 实时环境</span>
-        <span class="mode-indicator"><i aria-hidden="true"></i><span id="modeLabel">模拟数据模式</span></span>
+        <div class="source-controls">
+          <span class="mode-indicator" id="modeIndicator" data-mode="mqtt"><i aria-hidden="true"></i><span id="modeLabel">实时 MQTT</span></span>
+          <span class="connection-status" id="connectionStatus" data-state="connecting" aria-live="polite">MQTT 连接中</span>
+          <button class="mode-toggle" id="modeToggle" type="button">切换到模拟演示</button>
+        </div>
       </div>
     </header>
 
@@ -31,7 +38,7 @@
           <p class="eyebrow">房间传感器</p>
           <h1 id="page-title">环境正在变化</h1>
         </div>
-        <p class="intro-note">本地模拟样本持续刷新，切换节点查看各自的记录与趋势。</p>
+        <p class="intro-note" id="introNote">通过 WebSocket 接收 dormmate/+/env，切换节点查看各自的实时记录与趋势。</p>
       </section>
 
       <nav class="node-switcher" id="nodeSwitcher" aria-label="选择监测节点"></nav>
@@ -73,7 +80,7 @@
             <canvas id="humidityChart" aria-label="当前节点湿度趋势图" role="img"></canvas>
           </figure>
         </div>
-        <p class="chart-footnote" id="feedStatus" aria-live="polite">历史只保存在当前页面；每个节点最多保留 50 条记录。</p>
+        <p class="chart-footnote" id="feedStatus" aria-live="polite">正在连接 ws://127.0.0.1:9001；每个节点最多保留 50 条记录。</p>
       </section>
     </main>
 

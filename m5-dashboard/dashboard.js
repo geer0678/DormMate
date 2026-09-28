@@ -2,13 +2,13 @@
 
 ;(function () {
   const simulation = window.DormMateMqttSimulation
-  const messages = window.DormMateMqttMessage
-  const palette = getComputedStyle(document.documentElement)
   const { createDashboardStore } = window.DormMateDashboardStore
-  const store = createDashboardStore({ maxHistory: 50 })
+  const { createMqttTransport, STATES } = window.DormMateMqttTransport
+  const { createDashboardFeed, MODES } = window.DormMateDashboardFeed
+  const palette = getComputedStyle(document.documentElement)
+  const stores = { mqtt: createDashboardStore({ maxHistory: 50 }), simulation: createDashboardStore({ maxHistory: 50 }) }
   const nodeSwitcher = document.getElementById('nodeSwitcher')
   const nodeButtons = new Map()
-  const sequenceByNode = Object.fromEntries(simulation.NODES.map(node => [node.nodeId, 0]))
   const ui = {
     nodeHeading: document.getElementById('nodeHeading'),
     statusValue: document.getElementById('statusValue'),
@@ -20,8 +20,15 @@
     temperatureChart: document.getElementById('temperatureChart'),
     humidityChart: document.getElementById('humidityChart'),
     historyCount: document.getElementById('historyCount'),
-    feedStatus: document.getElementById('feedStatus')
+    feedStatus: document.getElementById('feedStatus'),
+    modeIndicator: document.getElementById('modeIndicator'),
+    modeLabel: document.getElementById('modeLabel'),
+    connectionStatus: document.getElementById('connectionStatus'),
+    modeToggle: document.getElementById('modeToggle'),
+    introNote: document.getElementById('introNote')
   }
+  let feed
+  let connectionState = STATES.CONNECTING
 
   function makeNodeButtons() {
     simulation.NODES.forEach(({ nodeId }) => {
@@ -37,7 +44,7 @@
       status.textContent = '等待数据'
       button.append(name, status)
       button.addEventListener('click', () => {
-        store.selectNode(nodeId)
+        feed.store.selectNode(nodeId)
         render()
       })
       nodeSwitcher.append(button)
@@ -123,6 +130,8 @@
   }
 
   function render() {
+    if (!feed) return
+    const store = feed.store
     const snapshot = store.snapshot()
     simulation.NODES.forEach(({ nodeId }) => {
       const item = nodeButtons.get(nodeId)
@@ -150,21 +159,73 @@
     drawChart(ui.humidityChart, snapshot.history, 'humidity', palette.getPropertyValue('--humidity').trim(), '%')
   }
 
-  function appendSimulatedSamples() {
-    simulation.NODES.forEach(({ nodeId }) => {
-      try {
-        const message = simulation.createNodeMessage(nodeId, sequenceByNode[nodeId]++)
-        const result = store.ingest(messages.topicForNode(nodeId), JSON.stringify(message))
-        if (!result.accepted && !result.duplicate) ui.feedStatus.textContent = '模拟消息已忽略：' + result.error
-      } catch (error) {
-        ui.feedStatus.textContent = '模拟数据暂时不可用：' + error.message
-      }
-    })
-    render()
+  function updateModeUi() {
+    const usingMqtt = feed.mode === MODES.MQTT
+    ui.modeIndicator.dataset.mode = feed.mode
+    ui.modeLabel.textContent = usingMqtt ? '实时 MQTT' : '模拟数据模式'
+    ui.modeToggle.textContent = usingMqtt ? '切换到模拟演示' : '切回实时 MQTT'
+    ui.introNote.textContent = usingMqtt
+      ? '通过 WebSocket 接收 dormmate/+/env，切换节点查看各自的实时记录与趋势。'
+      : '本地模拟样本持续刷新，切换节点查看各自独立的记录与趋势。'
   }
 
+  const connectionLabels = {
+    [STATES.CONNECTING]: '连接中',
+    [STATES.CONNECTED]: '已连接',
+    [STATES.DISCONNECTED]: '已断开',
+    [STATES.RECONNECTING]: '重连中',
+    [STATES.ERROR]: '连接错误'
+  }
+
+  function updateConnection(status) {
+    connectionState = status.state
+    ui.connectionStatus.dataset.state = status.state
+    ui.connectionStatus.textContent = 'MQTT ' + (connectionLabels[status.state] || '状态未知')
+    ui.connectionStatus.title = status.error || ''
+    if (status.state === STATES.CONNECTED) ui.feedStatus.textContent = '已连接 ws://127.0.0.1:9001，并订阅 dormmate/+/env。'
+    else if (status.state === STATES.CONNECTING) ui.feedStatus.textContent = '正在连接 ws://127.0.0.1:9001…'
+    else if (status.state === STATES.DISCONNECTED) ui.feedStatus.textContent = 'MQTT 已断开，客户端将尝试恢复连接。'
+    else if (status.state === STATES.RECONNECTING) ui.feedStatus.textContent = 'MQTT 正在重连…'
+    else if (status.state === STATES.ERROR) ui.feedStatus.textContent = 'MQTT 连接错误：' + (status.error || '未知错误') + '。可切换到模拟模式继续演示。'
+  }
+
+  feed = createDashboardFeed({
+    stores,
+    onChange: render,
+    onInvalid: (result, source) => {
+      ui.feedStatus.textContent = (source === MODES.MQTT ? '已忽略无效 MQTT 消息：' : '已忽略模拟消息：') + (result.error || '消息无效')
+    }
+  })
+
   makeNodeButtons()
-  appendSimulatedSamples()
+  updateModeUi()
+  render()
+
+  const transport = createMqttTransport({
+    mqtt: window.mqtt,
+    onMessage: (topic, payload) => {
+      const result = feed.ingestMqtt(topic, payload)
+      if (result.accepted) ui.feedStatus.textContent = '已接收 ' + topic + '，节点历史已更新。'
+      return result
+    },
+    onStatus: updateConnection
+  })
+
+  ui.modeToggle.addEventListener('click', () => {
+    const nextMode = feed.mode === MODES.MQTT ? MODES.SIMULATION : MODES.MQTT
+    if (feed.setMode(nextMode)) {
+      updateModeUi()
+      render()
+      if (nextMode === MODES.SIMULATION) ui.feedStatus.textContent = '模拟数据已启动，每 1.8 秒更新一次。'
+      else if (connectionState === STATES.CONNECTED) ui.feedStatus.textContent = 'MQTT 已连接并订阅 dormmate/+/env。'
+      else ui.feedStatus.textContent = '等待 MQTT 恢复；可随时切回模拟演示。'
+    }
+  })
+
   window.addEventListener('resize', render)
-  window.setInterval(appendSimulatedSamples, 1800)
+  window.addEventListener('pagehide', () => {
+    feed.destroy()
+    transport.stop()
+  }, { once: true })
+  transport.start()
 })()
