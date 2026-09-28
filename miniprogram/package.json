@@ -5,6 +5,7 @@
   "description": "DormMate 原生微信小程序",
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "mqtt:simulate": "node scripts/mqtt-publishers.js",
     "voice:configure": "node scripts/configure-voice.js"
   },
   "engines": {
@@ -12,5 +13,8 @@
   },
   "devDependencies": {
     "miniprogram-automator": "^0.12.1"
+  },
+  "dependencies": {
+    "mqtt": "^5.16.0"
   }
 }
