@@ -95,10 +95,20 @@ test('迁移旧缓存；清空后不重新导入旧缓存；读取失败不覆�
   assert.throws(()=>storage.load(wx))
   assert.equal(wx.values.get(storage.KEY),'broken')
 })
+test('页面在本地历史损坏后加载云端时保留原始缓存', async () => {
+  const wx=mockWx()
+  wx.values.set(storage.KEY,'broken')
+  const page=loadPage(wx)
+  await new Promise(setImmediate)
+  assert.equal(page._storageBlocked,true)
+  assert.equal(wx.values.get(storage.KEY),'broken')
+  page.onUnload()
+})
 function loadPage(wx) {
   const filename=path.resolve(__dirname,'../pages/index/index.js')
   let definition
-  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{require:createRequire(filename),wx,Page(value){definition=value},console,Date,Math})
+  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{require:createRequire(filename),wx,Page(value){definition=value},
+    console,Date,Math,setInterval(){return 1},clearInterval(){}})
   const page={...definition,data:JSON.parse(JSON.stringify(definition.data)),setData(patch){Object.assign(this.data,patch)}}
   page.onLoad()
   return page

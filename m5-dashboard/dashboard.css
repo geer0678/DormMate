@@ -56,6 +56,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outlin
 .reading-lead { min-height: 170px; display: flex; flex-direction: column; justify-content: space-between; padding: 22px 24px; }
 .current-heading h2 { margin: 0; font-size: 26px; letter-spacing: -.025em; }
 .status-readout { width: fit-content; margin: 0; padding: 5px 12px; color: var(--accent); background: var(--accent-soft); border-radius: 999px; font-size: 17px; font-weight: 650; }
+.reading-advice { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.reading-source { margin: 0; color: var(--muted); font-size: 12px; }
 .reading-time { margin: 0; color: var(--muted); font-size: 12px; }
 .measurement { min-height: 170px; display: flex; flex-direction: column; justify-content: space-between; padding: 23px 25px; border-left: 1px solid var(--line); }
 .measure-label { display: inline-flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
@@ -67,6 +69,16 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outlin
 .measurement p { display: flex; align-items: baseline; gap: 7px; margin: 0; white-space: nowrap; }
 .measurement strong { font-size: clamp(42px, 5.6vw, 64px); line-height: .95; font-weight: 560; letter-spacing: -.055em; font-variant-numeric: tabular-nums; }
 .measurement p span { color: var(--muted); font-size: 17px; }
+.entry-section { margin-top: 34px; }
+.entry-form { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; padding: 19px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+.entry-form p { width: 100%; margin: 0; color: var(--muted); font-size: 13px; }
+.entry-form p strong { color: var(--accent); }
+.entry-form label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+.entry-form input { width: 150px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); font: inherit; }
+.entry-form button { padding: 10px 15px; border: 0; border-radius: 8px; background: var(--accent); color: white; cursor: pointer; }
+.entry-form .analyze-button { border: 1px solid var(--line); background: var(--accent-soft); color: var(--accent); }
+.entry-form button:disabled { opacity: .55; cursor: wait; }
+#entryAnalysis, #saveRecordStatus { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .trend-section { margin-top: 34px; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
 .section-heading h2 { margin: 0; font-size: 21px; font-weight: 630; letter-spacing: -.02em; }
@@ -79,6 +91,20 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outlin
 .chart-panel figcaption strong { color: var(--ink); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .chart-panel canvas { display: block; width: 100%; height: 225px; margin-top: 8px; }
 .chart-footnote { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
+.shared-section { margin-top: 34px; }
+.shared-section .section-heading { align-items: center; }
+.shared-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.history-scope-label { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
+.history-scope-label select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--paper); font: inherit; }
+.shared-section button { padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--accent); background: var(--paper); cursor: pointer; }
+.shared-section button:hover { background: var(--accent-soft); }
+.shared-section button:disabled { opacity: .5; cursor: not-allowed; }
+#sharedStatus { min-height: 20px; margin: 12px 0; color: var(--muted); font-size: 13px; }
+.shared-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.shared-table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 13px; }
+.shared-table th, .shared-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+.shared-table th { color: var(--muted); font-weight: 600; }
+.shared-table tr:last-child td { border-bottom: 0; }
 .footer-line { display: flex; justify-content: space-between; margin-top: 30px; padding: 13px 0 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 
 @media (max-width: 760px) {

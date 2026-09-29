@@ -3,6 +3,8 @@ const records = require('../../utils/records')
 const csv = require('../../utils/csv')
 const storage = require('../../utils/storage')
 const cloudRecords = require('../../utils/cloudRecords')
+const mqttConfig = require('../../config/mqtt')
+const mqttRealtime = require('../../utils/mqttRealtime')
 const { createSpeech } = require('../../utils/speech')
 const { resolveCommand } = require('../../utils/commands')
 const webHistory = require('../../data/web-history')
@@ -15,6 +17,7 @@ Page({
       { key: 'analysis', label: '分析' }, { key: 'interaction', label: '交互' }],
     temperatureInput: '', humidityInput: '', temperature: '--', humidity: '--',
     status: '等待分析', advice: '输入现场温湿度，获取环境建议。', time: '--', tone: 'waiting',
+    currentNodeId: mqttConfig.nodeId, mqttStatus: '连接中',
     error: '', notice: '', stats: records.statistics([]), history: [], historyTotal: 0,
     historyLimit: PAGE_SIZE, onlyAbnormal: false, hasMore: false, trend: [], webRecordCount: webHistory.length,
     importText: '', importOpen: false, importBusy: false,
@@ -28,8 +31,13 @@ Page({
 
   onLoad() {
     this._alive = true; this._visible = true; this._history = []; this._storageBlocked = false
+    this._mqttRecords = new Map()
     try {
       this._history = storage.load(wx)
+      this._history.forEach(item => {
+        const pending = mqttRealtime.restorePending(item)
+        if (pending) this._mqttRecords.set(pending.recordId || pending.id, pending)
+      })
     } catch (error) {
       this._storageBlocked = true
       this.setData({ error: '历史读取失败，原数据已保留。请重新打开小程序；若仍失败，先备份开发者工具中的本地存储。' })
@@ -55,8 +63,10 @@ Page({
       playback: message => this.setData({ ttsStatus: message })
     })
     this.setData({ speechAvailable: this._speech.available })
+    this.startMqtt()
+    this._cloudTimer = setInterval(() => { if (this._visible) this.loadCloudHistory() }, 60000)
   },
-  onShow() { this._visible = true; this.loadCloudHistory() },
+  onShow() { this._visible = true; this.loadCloudHistory(); this.startMqtt() },
   onHide() {
     this._visible = false
     this.stopCamera()
@@ -64,7 +74,40 @@ Page({
   },
   onUnload() {
     this._alive = false
+    clearInterval(this._cloudTimer)
+    if (this._mqttBridge) this._mqttBridge.stop()
     if (this._speech) this._speech.destroy()
+  },
+
+  startMqtt() {
+    if (this._mqttBridge) return
+    if (typeof wx.connectSocket !== 'function') { this.setData({ mqttStatus: '连接错误' }); return }
+    try {
+      const mqtt = require('../../vendor/mqtt.min')
+      this._mqttBridge = mqttRealtime.createBridge({ mqtt, url: mqttConfig.miniUrl,
+        nodeId: mqttConfig.nodeId, topicFilter: mqttConfig.topicFilter,
+        onStatus: ({ label }) => { if (this._alive) this.setData({ mqttStatus: label }) },
+        onMessage: async record => {
+          if (!this._alive) return
+          this.showCurrent(record)
+          if (this._history.some(item => (item.recordId || item.id) === record.recordId)) return
+          const pending = { ...record, syncPending: true }
+          this._mqttRecords.set(record.recordId, pending)
+          this._history.unshift(pending)
+          this.refreshHistory()
+          if (!this._storageBlocked) {
+            try { storage.save(wx, this._history) } catch (error) {}
+          }
+          try {
+            await cloudRecords.add(wx, record)
+            if (this._alive) await this.loadCloudHistory(false)
+          } catch (error) {
+            if (this._alive) this.setData({ notice: '实时记录云端保存失败：' + error.message })
+          }
+        }
+      })
+      this._mqttBridge.start()
+    } catch (error) { this.setData({ mqttStatus: '连接错误' }) }
   },
 
   setTab(event) { this.openTab(event.currentTarget.dataset.tab) },
@@ -81,7 +124,7 @@ Page({
     this.setData({
       temperature: record.temperature, humidity: record.humidity, status: record.status,
       advice: record.advice, time: record.time, tone: record.status === '正常' ? 'normal' : 'attention',
-      ttsText: record.advice
+      ttsText: record.advice, currentNodeId: record.nodeId || mqttConfig.nodeId
     })
   },
   refreshHistory() {
@@ -92,14 +135,27 @@ Page({
       trend: this._history.slice(0, 30).reverse()
     })
   },
-  async loadCloudHistory() {
+  async loadCloudHistory(retryPending = true) {
     if (this._cloudLoad) return this._cloudLoad
     this._cloudLoad = (async () => {
       try {
+        let pendingError = null
+        if (retryPending) {
+          for (const record of this._mqttRecords.values()) {
+            try { await cloudRecords.add(wx, record) } catch (error) { pendingError = error }
+          }
+        }
         const shared = await cloudRecords.list(wx)
         if (!this._alive) return
         this._history = shared
-        try { storage.save(wx, shared) } catch (error) { this.setData({ notice: '云端记录已加载，本机缓存保存失败' }) }
+        for (const [id, record] of this._mqttRecords) {
+          if (shared.some(item => (item.recordId || item.id) === id)) this._mqttRecords.delete(id)
+          else this._history.unshift(record)
+        }
+        if (!this._storageBlocked) {
+          try { storage.save(wx, this._history) } catch (error) { this.setData({ notice: '云端记录已加载，本机缓存保存失败' }) }
+        }
+        if (pendingError) this.setData({ notice: '实时记录待同步：' + pendingError.message })
         this.refreshHistory()
       } catch (error) {
         if (this._alive) this.setData({ notice: '云端刷新失败，正在显示本机缓存：' + error.message })
@@ -118,11 +174,14 @@ Page({
     if (!validation.valid) { this.setData({ error: validation.error }); return }
     try {
       if (this._cloudLoad) await this._cloudLoad
+      const measuredAt = new Date()
       const record = records.normalize({
-        time: rules.formatTime(new Date()), temperature: validation.temperature, humidity: validation.humidity
+        time: rules.formatTime(measuredAt), temperature: validation.temperature, humidity: validation.humidity
       }, 0)
       record.id = 'miniprogram-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12)
-      await cloudRecords.add(wx, record)
+      record.measuredAt = measuredAt.toISOString()
+      record.nodeId = mqttConfig.nodeId
+      const mqttResult = await mqttRealtime.saveThenPublish(record, item => cloudRecords.add(wx, item), this._mqttBridge)
       try {
         this._history = await cloudRecords.list(wx)
       } catch (error) {
@@ -132,7 +191,7 @@ Page({
       try { storage.save(wx, this._history) } catch (error) {}
       this.refreshHistory()
       this.showCurrent(record)
-      this.setData({ error: '', notice: '已保存到共享历史' })
+      this.setData({ error: '', notice: mqttResult.published ? '已保存到共享历史并发送实时消息' : '已保存到共享历史；MQTT 暂不可用' })
       if (this.data.autoSpeak) this._speech.speak(record.advice)
     } catch (error) {
       this.setData({ error: '保存失败：' + error.message })

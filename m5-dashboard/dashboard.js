@@ -5,6 +5,9 @@
   const { createDashboardStore } = window.DormMateDashboardStore
   const { createMqttTransport, STATES } = window.DormMateMqttTransport
   const { createDashboardFeed, MODES } = window.DormMateDashboardFeed
+  const { createSharedHistory } = window.DormMateDashboardSharedHistory
+  const { createMqttPersistence } = window.DormMateDashboardMqttPersistence
+  const { createNodeView, filterSharedHistory } = window.DormMateDashboardNodeView
   const palette = getComputedStyle(document.documentElement)
   const stores = { mqtt: createDashboardStore({ maxHistory: 50 }), simulation: createDashboardStore({ maxHistory: 50 }) }
   const nodeSwitcher = document.getElementById('nodeSwitcher')
@@ -12,6 +15,8 @@
   const ui = {
     nodeHeading: document.getElementById('nodeHeading'),
     statusValue: document.getElementById('statusValue'),
+    currentAdvice: document.getElementById('currentAdvice'),
+    currentSource: document.getElementById('currentSource'),
     recordTime: document.getElementById('recordTime'),
     temperatureValue: document.getElementById('temperatureValue'),
     humidityValue: document.getElementById('humidityValue'),
@@ -21,14 +26,39 @@
     humidityChart: document.getElementById('humidityChart'),
     historyCount: document.getElementById('historyCount'),
     feedStatus: document.getElementById('feedStatus'),
+    mqttSyncStatus: document.getElementById('mqttSyncStatus'),
     modeIndicator: document.getElementById('modeIndicator'),
     modeLabel: document.getElementById('modeLabel'),
     connectionStatus: document.getElementById('connectionStatus'),
     modeToggle: document.getElementById('modeToggle'),
-    introNote: document.getElementById('introNote')
+    introNote: document.getElementById('introNote'),
+    sharedHistoryBody: document.getElementById('sharedHistoryBody'),
+    sharedStatus: document.getElementById('sharedStatus'),
+    historyScope: document.getElementById('historyScope'),
+    refreshSharedHistory: document.getElementById('refreshSharedHistory'),
+    exportSharedCsv: document.getElementById('exportSharedCsv'),
+    recordForm: document.getElementById('recordForm'),
+    entryNodeId: document.getElementById('entryNodeId'),
+    entryTemperature: document.getElementById('entryTemperature'),
+    entryHumidity: document.getElementById('entryHumidity'),
+    analyzeEntryButton: document.getElementById('analyzeEntryButton'),
+    entryAnalysis: document.getElementById('entryAnalysis'),
+    saveRecordButton: document.getElementById('saveRecordButton'),
+    saveRecordStatus: document.getElementById('saveRecordStatus')
   }
+  const sharedHistory = createSharedHistory({ list: () => getCloudHistory(), onChange: renderSharedHistory })
+  const mqttPersistence = createMqttPersistence({ save: saveCloudRecord, refresh: options => sharedHistory.refresh(options) })
   let feed
   let connectionState = STATES.CONNECTING
+  let sharedHistoryError = null
+
+  function visibleHistory(nodeId) {
+    return createNodeView({ nodeId, cloudRecords: sharedHistory.records, mqttRecords: stores.mqtt.getHistory(nodeId),
+      simulationRecords: stores.simulation.getHistory(nodeId), mode: feed.mode, maxHistory: 50 }).map(record => {
+      const analysis = window.DormMateRules.analyzeEnvironment(record.temperature, record.humidity)
+      return { ...record, status: record.status || analysis.status, advice: record.advice || analysis.advice }
+    })
+  }
 
   function makeNodeButtons() {
     simulation.NODES.forEach(({ nodeId }) => {
@@ -44,8 +74,10 @@
       status.textContent = '等待数据'
       button.append(name, status)
       button.addEventListener('click', () => {
-        feed.store.selectNode(nodeId)
+        stores.mqtt.selectNode(nodeId)
+        stores.simulation.selectNode(nodeId)
         render()
+        renderSharedHistory({ records: sharedHistory.records, error: sharedHistoryError })
       })
       nodeSwitcher.append(button)
       nodeButtons.set(nodeId, { button, status })
@@ -53,6 +85,8 @@
   }
 
   function timeLabel(value) {
+    if (value && value.timeUnknown) return '未提供测量时间'
+    if (value && typeof value === 'object') value = value.time
     return new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
 
@@ -61,6 +95,30 @@
     const values = history.map(record => record[field])
     const min = Math.min(...values), max = Math.max(...values)
     return (min === max ? min.toFixed(1) : min.toFixed(1) + '–' + max.toFixed(1)) + suffix
+  }
+
+  function renderSharedHistory({ records, error }) {
+    sharedHistoryError = error
+    ui.exportSharedCsv.disabled = records.length === 0
+    ui.sharedHistoryBody.replaceChildren()
+    const nodeId = feed ? feed.store.snapshot().selectedNodeId : simulation.NODES[0].nodeId
+    const shown = filterSharedHistory(records, nodeId, ui.historyScope.value)
+    shown.forEach(record => {
+      const row = document.createElement('tr')
+      row.dataset.recordId = record.recordId
+      ;[record.time, record.nodeId, record.temperature + '℃', record.humidity + '%', record.status, record.source].forEach(value => {
+        const cell = document.createElement('td')
+        cell.textContent = value
+        row.appendChild(cell)
+      })
+      ui.sharedHistoryBody.appendChild(row)
+    })
+    ui.sharedStatus.textContent = error
+      ? '共享历史读取失败：' + error
+      : ui.historyScope.value === 'all'
+        ? '全部共享记录：' + shown.length + ' 条' + (records.some(record => !record.rawNodeId) ? '；未标注宿舍的旧记录也包含在内。' : '')
+        : nodeId + ' 的共享记录：' + shown.length + ' 条'
+    if (feed) render()
   }
 
   function drawChart(canvas, history, field, color, unit) {
@@ -125,7 +183,7 @@
     context.textBaseline = 'alphabetic'
     labelIndices.forEach((index, position) => {
       context.textAlign = labelIndices.length === 1 ? 'center' : position === 0 ? 'left' : position === labelIndices.length - 1 ? 'right' : 'center'
-      context.fillText(timeLabel(history[index].time), pointX(index), height - 7)
+      context.fillText(timeLabel(history[index]), pointX(index), height - 7)
     })
   }
 
@@ -135,28 +193,38 @@
     const snapshot = store.snapshot()
     simulation.NODES.forEach(({ nodeId }) => {
       const item = nodeButtons.get(nodeId)
-      const history = store.getHistory(nodeId)
+      const nodeHistory = visibleHistory(nodeId)
       item.button.setAttribute('aria-pressed', String(nodeId === snapshot.selectedNodeId))
-      item.status.textContent = history.length ? history[history.length - 1].status : '等待数据'
+      item.status.textContent = nodeHistory.length ? nodeHistory[nodeHistory.length - 1].status : '等待数据'
     })
+    const history = visibleHistory(snapshot.selectedNodeId)
+    const current = history.length ? history[history.length - 1] : null
     ui.nodeHeading.textContent = snapshot.selectedNodeId
-    ui.historyCount.textContent = snapshot.history.length + ' / ' + snapshot.maxHistory + ' 条记录'
-    if (!snapshot.current) {
+    ui.entryNodeId.textContent = snapshot.selectedNodeId
+    ui.historyCount.textContent = history.length + ' / 50 条记录'
+    if (!current) {
       ui.statusValue.textContent = '等待数据'
+      ui.currentAdvice.textContent = '收到数据后显示建议。'
+      ui.currentSource.textContent = '数据来源：--'
       ui.recordTime.textContent = '--'
       ui.temperatureValue.textContent = '--'
       ui.humidityValue.textContent = '--'
     } else {
-      ui.statusValue.textContent = snapshot.current.status
-      ui.recordTime.textContent = new Date(snapshot.current.time).toLocaleString('zh-CN')
-      ui.recordTime.dateTime = snapshot.current.time
-      ui.temperatureValue.textContent = snapshot.current.temperature.toFixed(1)
-      ui.humidityValue.textContent = snapshot.current.humidity.toFixed(0)
+      const analysis = window.DormMateRules.analyzeEnvironment(current.temperature, current.humidity)
+      ui.statusValue.textContent = current.status || analysis.status
+      ui.currentAdvice.textContent = current.advice || analysis.advice
+      ui.currentSource.textContent = '数据来源：' + current.sourceLabel
+      ui.recordTime.textContent = current.timeUnknown
+        ? (current.recordTime || '--') + '（未提供测量时间）'
+        : new Date(current.time).toLocaleString('zh-CN')
+      ui.recordTime.dateTime = current.timeUnknown ? '' : current.time
+      ui.temperatureValue.textContent = current.temperature.toFixed(1)
+      ui.humidityValue.textContent = current.humidity.toFixed(0)
     }
-    ui.temperatureRange.textContent = rangeLabel(snapshot.history, 'temperature', ' ℃')
-    ui.humidityRange.textContent = rangeLabel(snapshot.history, 'humidity', ' %')
-    drawChart(ui.temperatureChart, snapshot.history, 'temperature', palette.getPropertyValue('--temperature').trim(), '℃')
-    drawChart(ui.humidityChart, snapshot.history, 'humidity', palette.getPropertyValue('--humidity').trim(), '%')
+    ui.temperatureRange.textContent = rangeLabel(history, 'temperature', ' ℃')
+    ui.humidityRange.textContent = rangeLabel(history, 'humidity', ' %')
+    drawChart(ui.temperatureChart, history, 'temperature', palette.getPropertyValue('--temperature').trim(), '℃')
+    drawChart(ui.humidityChart, history, 'humidity', palette.getPropertyValue('--humidity').trim(), '%')
   }
 
   function updateModeUi() {
@@ -206,6 +274,14 @@
     onMessage: (topic, payload) => {
       const result = feed.ingestMqtt(topic, payload)
       if (result.accepted) ui.feedStatus.textContent = '已接收 ' + topic + '，节点历史已更新。'
+      if (result.accepted || result.duplicate) {
+        const checked = result.accepted ? { valid: true, data: result.record } : window.DormMateMqttMessage.validateMessage(topic, payload)
+        if (checked.valid) mqttPersistence.persist(checked.data).then(saved => {
+          ui.mqttSyncStatus.textContent = saved.refreshed === false
+            ? 'MQTT 记录已保存；共享历史刷新失败，请手动刷新。'
+            : saved.duplicate ? '重复 recordId 已合并，未新增云记录。' : 'MQTT 记录已保存到共享历史。'
+        }).catch(error => { ui.mqttSyncStatus.textContent = 'MQTT 云端保存失败：' + (error.message || String(error)) })
+      }
       return result
     },
     onStatus: updateConnection
@@ -221,6 +297,52 @@
       else ui.feedStatus.textContent = '等待 MQTT 恢复；可随时切回模拟演示。'
     }
   })
+  ui.refreshSharedHistory.addEventListener('click', () => { sharedHistory.refresh() })
+  ui.historyScope.addEventListener('change', () => renderSharedHistory({ records: sharedHistory.records, error: sharedHistoryError }))
+  ui.exportSharedCsv.addEventListener('click', () => {
+    const records = sharedHistory.records
+    if (!records.length) return
+    const blob = new Blob([window.DormMateDashboardCsv.toCsv(records)], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'DormMate-shared-history-' + new Date().toISOString().slice(0, 10) + '.csv'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  })
+  function analyzeEntry() {
+    const measured = window.DormMateRules.validateEnvironment(ui.entryTemperature.value, ui.entryHumidity.value)
+    if (!measured.valid) { ui.entryAnalysis.textContent = measured.error; return null }
+    const analysis = window.DormMateRules.analyzeEnvironment(measured.temperature, measured.humidity)
+    ui.entryAnalysis.textContent = '状态：' + analysis.status + '；建议：' + analysis.advice
+    return measured
+  }
+  ui.analyzeEntryButton.addEventListener('click', analyzeEntry)
+  ui.recordForm.addEventListener('submit', async event => {
+    event.preventDefault()
+    if (ui.saveRecordButton.disabled) return
+    const measured = analyzeEntry()
+    if (!measured) return
+    const nodeId = feed.store.snapshot().selectedNodeId
+    const record = {
+      recordId: 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12),
+      nodeId, measuredAt: new Date().toISOString(), source: 'web',
+      temperature: measured.temperature, humidity: measured.humidity
+    }
+    ui.saveRecordButton.disabled = true
+    ui.saveRecordStatus.textContent = '正在保存 ' + nodeId + ' 的共享记录…'
+    try {
+      await saveCloudRecord(record)
+      const refreshed = await sharedHistory.refresh({ afterPending: true })
+      ui.saveRecordStatus.textContent = refreshed.success
+        ? nodeId + ' 的记录已保存并更新共享历史。'
+        : nodeId + ' 的记录已保存；历史刷新失败，请使用手动刷新。'
+    } catch (error) {
+      ui.saveRecordStatus.textContent = '保存失败：' + (error.message || String(error))
+    } finally { ui.saveRecordButton.disabled = false }
+  })
 
   window.addEventListener('resize', render)
   window.addEventListener('pagehide', () => {
@@ -228,4 +350,5 @@
     transport.stop()
   }, { once: true })
   transport.start()
+  sharedHistory.refresh()
 })()

@@ -21,7 +21,8 @@
       <view class="switch-row"><text>分析后自动播报建议</text><switch checked="{{autoSpeak}}" bindchange="toggleAutoSpeak" color="#2563eb" aria-label="分析后自动播报建议" /></view>
     </view>
     <view class="card">
-      <view class="card-title">当前环境</view><view class="time">更新时间：{{time}}</view>
+      <view class="card-title">当前环境 · {{currentNodeId}}</view><view class="time">更新时间：{{time}}</view>
+      <view class="hint">MQTT：{{mqttStatus}}</view>
       <view class="metrics">
         <view class="metric"><view class="label">温度</view><view class="metric-value">{{temperature}}<text>℃</text></view></view>
         <view class="metric"><view class="label">湿度</view><view class="metric-value">{{humidity}}<text>%</text></view></view>
@@ -55,7 +56,7 @@
     <view class="switch-row"><text>只看需关注记录（{{historyTotal}} 条）</text><switch checked="{{onlyAbnormal}}" bindchange="filterHistory" color="#2563eb" aria-label="只看需关注记录" /></view>
     <view wx:if="{{!history.length}}" class="empty">暂无符合条件的记录。输入一组数据，或导入网页历史。</view>
     <view wx:for="{{history}}" wx:key="id" class="history-card">
-      <view class="history-top"><text>{{item.time}} · {{item.source === 'web' ? 'Web' : '小程序'}}</text><text class="status {{item.status === '正常' ? 'normal' : 'attention'}}">{{item.status}}</text></view>
+      <view class="history-top"><text>{{item.time}} · {{item.source === 'web' ? 'Web' : item.source === 'mqtt' ? '实时 MQTT' : '小程序'}}</text><text class="status {{item.status === '正常' ? 'normal' : 'attention'}}">{{item.status}}</text></view>
       <view class="history-values">{{item.temperature}}℃ <text>温度</text><text class="separator">/</text> {{item.humidity}}% <text>湿度</text></view>
       <view class="history-advice">{{item.advice}}</view>
     </view>

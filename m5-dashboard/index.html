@@ -10,9 +10,15 @@
   <script defer src="../miniprogram/utils/mqttMessage.js"></script>
   <script defer src="../miniprogram/utils/mqttSimulation.js"></script>
   <script defer src="../miniprogram/node_modules/mqtt/dist/mqtt.min.js"></script>
+  <script defer src="https://static.cloudbase.net/cloudbase-js-sdk/2.28.6/cloudbase.full.js"></script>
+  <script defer src="../cloudRecords.js"></script>
   <script defer src="dashboardStore.js"></script>
   <script defer src="mqttTransport.js"></script>
   <script defer src="dashboardFeed.js"></script>
+  <script defer src="dashboardSharedHistory.js"></script>
+  <script defer src="dashboardCsv.js"></script>
+  <script defer src="dashboardMqttPersistence.js"></script>
+  <script defer src="dashboardNodeView.js"></script>
   <script defer src="dashboard.js"></script>
 </head>
 <body>
@@ -50,6 +56,8 @@
             <h2 id="nodeHeading">dorm-a</h2>
           </div>
           <p class="status-readout" id="statusValue" aria-live="polite">等待数据</p>
+          <p class="reading-advice" id="currentAdvice">收到数据后显示建议。</p>
+          <p class="reading-source" id="currentSource">数据来源：--</p>
           <p class="reading-time">记录时间 <time id="recordTime">--</time></p>
         </div>
         <div class="measurement temperature-measure" aria-label="当前温度">
@@ -60,6 +68,19 @@
           <span class="measure-label"><i aria-hidden="true"></i>湿度</span>
           <p><strong id="humidityValue">--</strong><span>%</span></p>
         </div>
+      </section>
+
+      <section class="entry-section" aria-labelledby="entryHeading">
+        <div class="section-heading"><div><p class="eyebrow">业务记录</p><h2 id="entryHeading">为当前宿舍录入环境数据</h2></div></div>
+        <form id="recordForm" class="entry-form">
+          <p>保存到 <strong id="entryNodeId">dorm-a</strong>；模拟演示画面不会自动保存。</p>
+          <label>温度（℃）<input id="entryTemperature" name="temperature" type="number" min="0" max="50" step="0.1" required></label>
+          <label>湿度（%）<input id="entryHumidity" name="humidity" type="number" min="0" max="100" step="0.1" required></label>
+          <button id="analyzeEntryButton" class="analyze-button" type="button">分析环境</button>
+          <button id="saveRecordButton" type="submit">保存共享记录</button>
+        </form>
+        <p id="entryAnalysis" role="status" aria-live="polite">分析结果将在这里显示；分析本身不会保存记录。</p>
+        <p id="saveRecordStatus" role="status" aria-live="polite">请选择宿舍并输入一次有效测量。</p>
       </section>
 
       <section class="trend-section" aria-labelledby="trendHeading">
@@ -81,6 +102,19 @@
           </figure>
         </div>
         <p class="chart-footnote" id="feedStatus" aria-live="polite">正在连接 ws://127.0.0.1:9001；每个节点最多保留 50 条记录。</p>
+        <p class="chart-footnote" id="mqttSyncStatus" role="status">MQTT 业务记录将按 recordId 同步到共享历史。</p>
+      </section>
+
+      <section class="shared-section" aria-labelledby="sharedHeading">
+        <div class="section-heading">
+          <div><p class="eyebrow">跨端记录</p><h2 id="sharedHeading">共享历史</h2></div>
+          <div class="shared-actions"><label class="history-scope-label">显示范围<select id="historyScope"><option value="current">当前宿舍</option><option value="all">全部记录</option></select></label><button id="exportSharedCsv" type="button" disabled>导出 CSV</button><button id="refreshSharedHistory" type="button">刷新共享历史</button></div>
+        </div>
+        <p id="sharedStatus" role="status">正在读取共享历史…</p>
+        <div class="shared-table-wrap"><table class="shared-table">
+          <thead><tr><th>记录时间</th><th>节点</th><th>温度</th><th>湿度</th><th>状态</th><th>来源</th></tr></thead>
+          <tbody id="sharedHistoryBody"></tbody>
+        </table></div>
       </section>
     </main>
 

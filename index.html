@@ -94,6 +94,7 @@
     </button>
     <button id="refreshCloudButton" type="button">刷新共享历史</button>
     <p id="syncStatus" role="status">正在连接共享历史…</p>
+    <p id="mqttStatus" role="status">MQTT 连接中</p>
 
 
     <table id="historyTable">
@@ -453,6 +454,11 @@
 
     <script src="https://static.cloudbase.net/cloudbase-js-sdk/2.28.6/cloudbase.full.js"></script>
     <script src="cloudRecords.js"></script>
+    <script src="miniprogram/utils/dormmate.js"></script>
+    <script src="miniprogram/utils/mqttMessage.js"></script>
+    <script src="miniprogram/config/mqtt.js"></script>
+    <script src="miniprogram/node_modules/mqtt/dist/mqtt.min.js"></script>
+    <script src="miniprogram/utils/mqttRealtime.js"></script>
     <script src="script.js"></script>
 
 </body>

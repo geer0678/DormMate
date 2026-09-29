@@ -94,6 +94,24 @@ test('新增时忽略客户端 status/advice，存储服务器计算结果和服
   assert.equal(result.record._id, 'auto-1')
 })
 
+test('MQTT 记录保留统一节点和测量时间，重复 recordId 只写一次', async () => {
+  const cloud = memoryCloud()
+  const handler = createEnvironmentRecordsHandler(cloud)
+  const data = { action: 'add', recordId: 'mqtt-dorm-b-12345678', source: 'mqtt', nodeId: 'dorm-b',
+    measuredAt: '2026-09-28T12:30:00.000Z', temperature: 31, humidity: 78 }
+  const first = await handler(data)
+  const second = await handler(data)
+  assert.equal(first.success, true)
+  assert.equal(first.record.source, 'mqtt')
+  assert.equal(first.record.nodeId, 'dorm-b')
+  assert.equal(first.record.measuredAt, data.measuredAt)
+  assert.equal(second.duplicated, true)
+  assert.equal(cloud.rows.size, 1)
+  assert.equal((await handler({ ...data, measuredAt: 'bad' })).code, 'INVALID_MEASURED_AT')
+  assert.equal((await handler({ ...data, measuredAt: '2026-02-30T12:30:00Z' })).code, 'INVALID_MEASURED_AT')
+  assert.equal((await handler({ ...data, nodeId: 'bad/id' })).code, 'INVALID_NODE_ID')
+})
+
 test('唯一索引冲突回查 recordId 并返回幂等成功原记录', async () => {
   const cloud = memoryCloud({ duplicateOnAdd: true })
   cloud.rows.set('preexisting-auto-id', {

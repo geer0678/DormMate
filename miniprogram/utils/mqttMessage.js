@@ -69,6 +69,8 @@
   function payloadText(payload) {
     if (typeof payload === 'string') return payload
     if (typeof Buffer !== 'undefined' && Buffer.isBuffer(payload)) return payload.toString('utf8')
+    if (typeof Uint8Array !== 'undefined' && payload instanceof Uint8Array &&
+        payload.toString !== Uint8Array.prototype.toString) return payload.toString('utf8')
     if (typeof Uint8Array !== 'undefined' && payload instanceof Uint8Array && typeof TextDecoder !== 'undefined') {
       return new TextDecoder().decode(payload)
     }

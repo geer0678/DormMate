@@ -14,13 +14,14 @@ async function cloudCall(data) {
 }
 
 function cloudRecordToHistory(record) {
-    const raw = record.createdAt && (record.createdAt.$date || record.createdAt);
+    const raw = record.measuredAt || (record.createdAt && (record.createdAt.$date || record.createdAt));
     const date = new Date(raw);
     if (Number.isNaN(date.getTime())) throw new Error('云端记录时间无效');
     const pad = value => String(value).padStart(2, '0');
     const time = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
         `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
     return { id: record.recordId, recordId: record.recordId, time,
+        nodeId: record.nodeId, measuredAt: record.measuredAt,
         temperature: record.temperature, humidity: record.humidity,
         status: record.status, advice: record.advice, source: record.source };
 }
@@ -37,6 +38,8 @@ async function getCloudHistory() {
 }
 
 function saveCloudRecord(record) {
-    return cloudCall({ action: 'add', source: 'web', recordId: record.id,
-        temperature: record.temperature, humidity: record.humidity });
+    return cloudCall({ action: 'add', source: record.source === 'mqtt' ? 'mqtt' : 'web',
+        recordId: record.recordId || record.id, temperature: record.temperature, humidity: record.humidity,
+        ...(record.nodeId ? { nodeId: record.nodeId } : {}),
+        ...(record.measuredAt ? { measuredAt: record.measuredAt } : {}) });
 }
