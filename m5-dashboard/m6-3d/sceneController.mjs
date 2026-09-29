@@ -181,10 +181,13 @@ if (canvas && stage && statusText && description && nodeText && overlay) {
       droplets.visible = profile.droplets
       stage.dataset.state = sceneState.visual
       nodeText.textContent = sceneState.nodeId || '未知节点'
-      statusText.textContent = sceneState.status
-      description.textContent = sceneState.description
+      const processingIssue = context.issue && context.issue.state === 'processing' ? context.issue : null
+      statusText.textContent = processingIssue ? '处理中 · ' + sceneState.status : sceneState.status
+      description.textContent = processingIssue
+        ? '已执行“' + processingIssue.action + '”。当前环境为“' + sceneState.status + '”；恢复验证 ' + processingIssue.recoverySamples + '/' + (window.DormMateDashboardIssueEvents?.RECOVERY_SAMPLES || 2) + ' 批正常数据。'
+        : sceneState.description
       overlay.textContent = sceneState.hasData
-        ? sceneState.status + (sceneState.temperature !== null && sceneState.humidity !== null ? ' · ' + sceneState.temperature + '℃ / ' + sceneState.humidity + '%' : '')
+        ? (processingIssue ? '处理中 · ' : '') + sceneState.status + (sceneState.temperature !== null && sceneState.humidity !== null ? ' · ' + sceneState.temperature + '℃ / ' + sceneState.humidity + '%' : '')
         : '等待 ' + (sceneState.nodeId || '当前节点') + ' 数据'
       document.querySelectorAll('[data-scene-status]').forEach(button => {
         button.setAttribute('aria-pressed', String(button.dataset.sceneStatus === sceneState.status))

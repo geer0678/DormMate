@@ -20,6 +20,7 @@
   <script defer src="dashboardCsv.js"></script>
   <script defer src="dashboardMqttPersistence.js"></script>
   <script defer src="dashboardNodeView.js"></script>
+  <script defer src="dashboardIssueEvents.js"></script>
   <script defer src="dashboard.js"></script>
 </head>
 <body>
@@ -99,14 +100,34 @@
       <section class="entry-section" aria-labelledby="entryHeading">
         <div class="section-heading"><div><p class="eyebrow">业务记录</p><h2 id="entryHeading">为当前宿舍录入环境数据</h2></div></div>
         <form id="recordForm" class="entry-form">
-          <p>保存到 <strong id="entryNodeId">dorm-a</strong>；模拟演示画面不会自动保存。</p>
+          <p>保存到 <strong id="entryNodeId">dorm-a</strong>；模拟样本需显式注入且只保存在本机。</p>
           <label>温度（℃）<input id="entryTemperature" name="temperature" type="number" min="0" max="50" step="0.1" required></label>
           <label>湿度（%）<input id="entryHumidity" name="humidity" type="number" min="0" max="100" step="0.1" required></label>
           <button id="analyzeEntryButton" class="analyze-button" type="button">分析环境</button>
           <button id="saveRecordButton" type="submit">保存共享记录</button>
+          <button id="simulateSampleButton" class="simulation-button" type="button" disabled>仅注入本地模拟数据</button>
         </form>
         <p id="entryAnalysis" role="status" aria-live="polite">分析结果将在这里显示；分析本身不会保存记录。</p>
         <p id="saveRecordStatus" role="status" aria-live="polite">请选择宿舍并输入一次有效测量。</p>
+        <p id="simulationSampleStatus" class="simulation-sample-status" role="status" aria-live="polite">模拟注入仅在模拟模式可用，不写入 CloudBase。</p>
+      </section>
+
+      <section class="issue-section" aria-labelledby="issueHeading">
+        <div class="section-heading">
+          <div><p class="eyebrow">A · 问题闭环</p><h2 id="issueHeading">异常处理与验证</h2></div>
+          <div class="issue-heading-actions">
+            <span class="issue-mode-label" id="issueModeLabel">实时 MQTT 事件</span>
+            <button id="simulationTimerToggle" class="simulation-pause-toggle" type="button" hidden>暂停自动模拟刷新</button>
+          </div>
+        </div>
+        <p class="issue-summary" id="issueSummary" role="status" aria-live="polite">等待有效环境数据。</p>
+        <div class="active-issue-list" id="activeIssueList"></div>
+        <p class="issue-policy-note">处理操作只记录措施；恢复需在处理开始后收到连续 2 批正常数据。模拟演示事件只保存在本机，不写入 CloudBase。</p>
+        <div class="section-heading issue-history-heading">
+          <div><p class="eyebrow">可回顾的闭环</p><h3>问题处理记录</h3></div>
+          <span class="issue-history-count" id="issueHistoryCount">0 条</span>
+        </div>
+        <div class="issue-history-list" id="issueHistoryList"></div>
       </section>
 
       <section class="trend-section" aria-labelledby="trendHeading">

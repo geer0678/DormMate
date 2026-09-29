@@ -63,10 +63,13 @@ test('M6 只消费 Dashboard 状态事件，不创建 MQTT 或 CloudBase 写链�
   const controller = fs.readFileSync(path.join(dashboardRoot, 'm6-3d/sceneController.mjs'), 'utf8')
   assert.match(html, /m6-3d\/sceneController\.mjs/)
   assert.match(dashboard, /dormmate:dashboard-state/)
+  assert.match(dashboard, /issue: issueEvents\.getActive/)
   assert.match(controller, /OrbitControls/)
   assert.match(controller, /new THREE\.WebGLRenderer/)
   assert.match(controller, /function updateScene\(status, context = \{\}\)/)
   assert.match(controller, /updateScene\(button\.dataset\.sceneStatus, \{ nodeId: activeNodeId \}\)/)
+  assert.match(controller, /context\.issue && context\.issue\.state === 'processing'/)
+  assert.match(controller, /处理中 · /)
   assert.doesNotMatch(controller, /mqtt\.connect|saveCloudRecord|fetch\(/)
 })
 
