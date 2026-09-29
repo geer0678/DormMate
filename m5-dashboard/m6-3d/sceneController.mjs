@@ -181,16 +181,20 @@ if (canvas && stage && statusText && description && nodeText && overlay) {
       droplets.visible = profile.droplets
       stage.dataset.state = sceneState.visual
       nodeText.textContent = sceneState.nodeId || '未知节点'
+      const demo = context.demo === true
       const processingIssue = context.issue && context.issue.state === 'processing' ? context.issue : null
-      statusText.textContent = processingIssue ? '处理中 · ' + sceneState.status : sceneState.status
-      description.textContent = processingIssue
+      statusText.textContent = demo ? '本地演示 · ' + sceneState.status
+        : processingIssue ? '处理中 · ' + sceneState.status : sceneState.status
+      description.textContent = demo
+        ? '这是三维视觉演示，不代表当前宿舍的实时判断；实际状态与建议请看上方环境摘要。'
+        : processingIssue
         ? '已执行“' + processingIssue.action + '”。当前环境为“' + sceneState.status + '”；恢复验证 ' + processingIssue.recoverySamples + '/' + (window.DormMateDashboardIssueEvents?.RECOVERY_SAMPLES || 2) + ' 批正常数据。'
         : sceneState.description
       overlay.textContent = sceneState.hasData
-        ? (processingIssue ? '处理中 · ' : '') + sceneState.status + (sceneState.temperature !== null && sceneState.humidity !== null ? ' · ' + sceneState.temperature + '℃ / ' + sceneState.humidity + '%' : '')
+        ? (demo ? '本地演示 · ' : processingIssue ? '处理中 · ' : '') + sceneState.status + (sceneState.temperature !== null && sceneState.humidity !== null ? ' · ' + sceneState.temperature + '℃ / ' + sceneState.humidity + '%' : '')
         : '等待 ' + (sceneState.nodeId || '当前节点') + ' 数据'
       document.querySelectorAll('[data-scene-status]').forEach(button => {
-        button.setAttribute('aria-pressed', String(button.dataset.sceneStatus === sceneState.status))
+        button.setAttribute('aria-pressed', String(demo && button.dataset.sceneStatus === sceneState.status))
       })
     }
 
@@ -225,7 +229,7 @@ if (canvas && stage && statusText && description && nodeText && overlay) {
     })
     document.querySelectorAll('[data-scene-status]').forEach(button => {
       button.addEventListener('click', () => {
-        updateScene(button.dataset.sceneStatus, { nodeId: activeNodeId })
+        updateScene(button.dataset.sceneStatus, { nodeId: activeNodeId, demo: true })
       })
     })
     window.DormMateM6Scene = Object.freeze({ updateScene, get state() { return { ...sceneState } } })

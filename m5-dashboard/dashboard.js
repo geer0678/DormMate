@@ -9,6 +9,7 @@
   const { createMqttPersistence } = window.DormMateDashboardMqttPersistence
   const { createNodeView, filterSharedHistory } = window.DormMateDashboardNodeView
   const { createDashboardIssueEvents } = window.DormMateDashboardIssueEvents
+  const { buildCurrentSummary, buildDormOverview, buildRecentEvents, buildTrendSummary } = window.DormMateDashboardBriefing
   const palette = getComputedStyle(document.documentElement)
   const stores = { mqtt: createDashboardStore({ maxHistory: 50 }), simulation: createDashboardStore({ maxHistory: 50 }) }
   const issueEvents = createDashboardIssueEvents()
@@ -22,8 +23,19 @@
     recordTime: document.getElementById('recordTime'),
     temperatureValue: document.getElementById('temperatureValue'),
     humidityValue: document.getElementById('humidityValue'),
+    currentSummary: document.getElementById('currentSummary'),
+    briefingSource: document.getElementById('briefingSource'),
+    briefingTime: document.getElementById('briefingTime'),
+    briefingStatus: document.getElementById('briefingStatus'),
+    briefingBasis: document.getElementById('briefingBasis'),
+    briefingAdvice: document.getElementById('briefingAdvice'),
+    speakSummaryButton: document.getElementById('speakSummaryButton'),
+    summarySpeechStatus: document.getElementById('summarySpeechStatus'),
+    overviewFocus: document.getElementById('overviewFocus'),
+    dormOverview: document.getElementById('dormOverview'),
     temperatureRange: document.getElementById('temperatureRange'),
     humidityRange: document.getElementById('humidityRange'),
+    trendExplanation: document.getElementById('trendExplanation'),
     temperatureChart: document.getElementById('temperatureChart'),
     humidityChart: document.getElementById('humidityChart'),
     historyCount: document.getElementById('historyCount'),
@@ -51,6 +63,9 @@
     simulationSampleStatus: document.getElementById('simulationSampleStatus'),
     issueModeLabel: document.getElementById('issueModeLabel'),
     issueSummary: document.getElementById('issueSummary'),
+    eventDigestPeriod: document.getElementById('eventDigestPeriod'),
+    eventDigestStatus: document.getElementById('eventDigestStatus'),
+    recentEventList: document.getElementById('recentEventList'),
     activeIssueList: document.getElementById('activeIssueList'),
     issueHistoryCount: document.getElementById('issueHistoryCount'),
     issueHistoryList: document.getElementById('issueHistoryList'),
@@ -61,6 +76,8 @@
   let feed
   let connectionState = STATES.CONNECTING
   let sharedHistoryError = null
+  let lastBriefingContext = ''
+  let activeUtterance = null
 
   function visibleHistory(nodeId) {
     return createNodeView({ nodeId, cloudRecords: sharedHistory.records, mqttRecords: stores.mqtt.getHistory(nodeId),
@@ -350,17 +367,74 @@
     })
   }
 
+  function renderBriefing({ summary, overview, digest, trend, selectedNodeId }) {
+    ui.currentSummary.textContent = summary.summarySentence
+    ui.briefingSource.textContent = summary.source
+    ui.briefingTime.textContent = summary.updatedAt
+    ui.briefingStatus.textContent = summary.status
+    ui.briefingBasis.textContent = summary.reason
+    ui.briefingAdvice.textContent = summary.advice || '暂无现有建议。'
+    ui.speakSummaryButton.disabled = !summary.hasData
+    ui.overviewFocus.textContent = overview.focus.message
+    ui.dormOverview.replaceChildren()
+    overview.dorms.forEach(room => {
+      const card = document.createElement('article')
+      card.className = 'dorm-overview-card'
+      card.dataset.selected = String(room.nodeId === selectedNodeId)
+      card.dataset.attention = room.attention
+      const header = document.createElement('div')
+      header.className = 'dorm-overview-head'
+      const name = document.createElement('h3')
+      name.textContent = room.nodeId
+      const badge = document.createElement('span')
+      badge.className = 'dorm-attention-badge'
+      badge.textContent = room.attention
+      header.append(name, badge)
+      const reading = document.createElement('p')
+      reading.className = 'dorm-overview-reading'
+      reading.textContent = room.hasData ? room.temperature + '℃ / ' + room.humidity + '%' : '等待有效数据'
+      const status = document.createElement('p')
+      status.className = 'dorm-overview-status'
+      status.textContent = '当前状态：' + room.status
+      const issue = document.createElement('p')
+      issue.className = 'dorm-overview-issue'
+      issue.textContent = '问题处理：' + room.issueState
+      card.append(header, reading, status, issue)
+      ui.dormOverview.append(card)
+    })
+    ui.eventDigestPeriod.textContent = digest.period
+    ui.eventDigestStatus.textContent = digest.message
+    ui.recentEventList.replaceChildren()
+    digest.events.forEach(event => {
+      const row = document.createElement('li')
+      row.className = 'recent-event'
+      row.dataset.state = event.state
+      const heading = document.createElement('strong')
+      heading.textContent = event.nodeId + ' · ' + event.issueStatus + ' · ' + event.stateLabel + '（' + event.priority + '）'
+      const description = document.createElement('span')
+      description.textContent = event.description
+      const detail = document.createElement('span')
+      detail.textContent = event.detail
+      row.append(heading, description, detail)
+      ui.recentEventList.append(row)
+    })
+    ui.trendExplanation.textContent = trend.message
+  }
+
   function render() {
     if (!feed) return
     const store = feed.store
     const snapshot = store.snapshot()
+    const nodeIds = simulation.NODES.map(node => node.nodeId)
+    const histories = Object.fromEntries(nodeIds.map(nodeId => [nodeId, visibleHistory(nodeId)]))
+    const activeIssues = Object.fromEntries(nodeIds.map(nodeId => [nodeId, issueEvents.getActive(nodeId, feed.mode)]))
     simulation.NODES.forEach(({ nodeId }) => {
       const item = nodeButtons.get(nodeId)
-      const nodeHistory = visibleHistory(nodeId)
+      const nodeHistory = histories[nodeId]
       item.button.setAttribute('aria-pressed', String(nodeId === snapshot.selectedNodeId))
       item.status.textContent = nodeHistory.length ? nodeHistory[nodeHistory.length - 1].status : '等待数据'
     })
-    const history = visibleHistory(snapshot.selectedNodeId)
+    const history = histories[snapshot.selectedNodeId]
     const current = history.length ? history[history.length - 1] : null
     let currentStatus = ''
     ui.nodeHeading.textContent = snapshot.selectedNodeId
@@ -390,11 +464,29 @@
     ui.humidityRange.textContent = rangeLabel(history, 'humidity', ' %')
     drawChart(ui.temperatureChart, history, 'temperature', palette.getPropertyValue('--temperature').trim(), '℃')
     drawChart(ui.humidityChart, history, 'humidity', palette.getPropertyValue('--humidity').trim(), '%')
+    const stateRecord = current ? { ...current, nodeId: current.nodeId || snapshot.selectedNodeId, status: currentStatus } : null
+    const sourceEvents = issueEvents.getEvents({ sourceMode: feed.mode })
+    const summary = buildCurrentSummary({ nodeId: snapshot.selectedNodeId, record: stateRecord,
+      activeIssue: activeIssues[snapshot.selectedNodeId] })
+    const overview = buildDormOverview({ nodeIds, histories, activeIssues })
+    const digest = buildRecentEvents(sourceEvents, { sourceMode: feed.mode })
+    const trend = buildTrendSummary(history, { currentStatus, events: sourceEvents })
+    const briefingContext = feed.mode + ':' + snapshot.selectedNodeId
+    if (lastBriefingContext !== briefingContext) {
+      if (lastBriefingContext && 'speechSynthesis' in window) {
+        activeUtterance = null
+        window.speechSynthesis.cancel()
+      }
+      ui.summarySpeechStatus.textContent = ''
+      lastBriefingContext = briefingContext
+    }
+    renderBriefing({ summary, overview, digest, trend, selectedNodeId: snapshot.selectedNodeId })
     const dashboardState = {
       nodeId: snapshot.selectedNodeId,
       mode: feed.mode,
-      record: current ? { ...current, nodeId: current.nodeId || snapshot.selectedNodeId, status: currentStatus } : null,
-      issue: issueEvents.getActive(snapshot.selectedNodeId, feed.mode)
+      record: stateRecord,
+      issue: activeIssues[snapshot.selectedNodeId],
+      briefing: summary
     }
     renderIssuePanel()
     window.DormMateDashboardState = dashboardState
@@ -486,6 +578,32 @@
     const paused = !feed.simulationPaused
     if (feed.setSimulationPaused(paused)) updateModeUi()
   })
+  ui.speakSummaryButton.addEventListener('click', () => {
+    const summary = window.DormMateDashboardState?.briefing
+    if (!summary?.hasData) {
+      ui.summarySpeechStatus.textContent = '当前宿舍暂无可播报的环境数据。'
+      return
+    }
+    if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
+      ui.summarySpeechStatus.textContent = '当前浏览器不支持语音播报。'
+      return
+    }
+    window.speechSynthesis.cancel()
+    const utterance = new window.SpeechSynthesisUtterance(summary.speechText)
+    utterance.lang = 'zh-CN'
+    utterance.rate = 1
+    utterance.pitch = 1
+    utterance.volume = 1
+    activeUtterance = utterance
+    ui.summarySpeechStatus.textContent = '正在播报 ' + summary.nodeId + ' 的当前环境摘要…'
+    utterance.onend = () => {
+      if (activeUtterance === utterance) ui.summarySpeechStatus.textContent = '当前环境摘要播报完成。'
+    }
+    utterance.onerror = () => {
+      if (activeUtterance === utterance) ui.summarySpeechStatus.textContent = '浏览器未能完成播报，请检查语音功能。'
+    }
+    window.speechSynthesis.speak(utterance)
+  })
   ui.refreshSharedHistory.addEventListener('click', () => { sharedHistory.refresh() })
   ui.historyScope.addEventListener('change', () => renderSharedHistory({ records: sharedHistory.records, error: sharedHistoryError }))
   ui.exportSharedCsv.addEventListener('click', () => {
@@ -569,6 +687,7 @@
 
   window.addEventListener('resize', render)
   window.addEventListener('pagehide', () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     feed.destroy()
     transport.stop()
   }, { once: true })
