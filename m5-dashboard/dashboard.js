@@ -8,8 +8,11 @@
   const { createSharedHistory } = window.DormMateDashboardSharedHistory
   const { createMqttPersistence } = window.DormMateDashboardMqttPersistence
   const { createNodeView, filterSharedHistory } = window.DormMateDashboardNodeView
+  const { createDashboardIssueEvents } = window.DormMateDashboardIssueEvents
+  const { buildCurrentSummary, buildDormOverview, buildRecentEvents, buildTrendSummary } = window.DormMateDashboardBriefing
   const palette = getComputedStyle(document.documentElement)
   const stores = { mqtt: createDashboardStore({ maxHistory: 50 }), simulation: createDashboardStore({ maxHistory: 50 }) }
+  const issueEvents = createDashboardIssueEvents()
   const nodeSwitcher = document.getElementById('nodeSwitcher')
   const nodeButtons = new Map()
   const ui = {
@@ -20,8 +23,19 @@
     recordTime: document.getElementById('recordTime'),
     temperatureValue: document.getElementById('temperatureValue'),
     humidityValue: document.getElementById('humidityValue'),
+    currentSummary: document.getElementById('currentSummary'),
+    briefingSource: document.getElementById('briefingSource'),
+    briefingTime: document.getElementById('briefingTime'),
+    briefingStatus: document.getElementById('briefingStatus'),
+    briefingBasis: document.getElementById('briefingBasis'),
+    briefingAdvice: document.getElementById('briefingAdvice'),
+    speakSummaryButton: document.getElementById('speakSummaryButton'),
+    summarySpeechStatus: document.getElementById('summarySpeechStatus'),
+    overviewFocus: document.getElementById('overviewFocus'),
+    dormOverview: document.getElementById('dormOverview'),
     temperatureRange: document.getElementById('temperatureRange'),
     humidityRange: document.getElementById('humidityRange'),
+    trendExplanation: document.getElementById('trendExplanation'),
     temperatureChart: document.getElementById('temperatureChart'),
     humidityChart: document.getElementById('humidityChart'),
     historyCount: document.getElementById('historyCount'),
@@ -44,13 +58,26 @@
     analyzeEntryButton: document.getElementById('analyzeEntryButton'),
     entryAnalysis: document.getElementById('entryAnalysis'),
     saveRecordButton: document.getElementById('saveRecordButton'),
-    saveRecordStatus: document.getElementById('saveRecordStatus')
+    saveRecordStatus: document.getElementById('saveRecordStatus'),
+    simulateSampleButton: document.getElementById('simulateSampleButton'),
+    simulationSampleStatus: document.getElementById('simulationSampleStatus'),
+    issueModeLabel: document.getElementById('issueModeLabel'),
+    issueSummary: document.getElementById('issueSummary'),
+    eventDigestPeriod: document.getElementById('eventDigestPeriod'),
+    eventDigestStatus: document.getElementById('eventDigestStatus'),
+    recentEventList: document.getElementById('recentEventList'),
+    activeIssueList: document.getElementById('activeIssueList'),
+    issueHistoryCount: document.getElementById('issueHistoryCount'),
+    issueHistoryList: document.getElementById('issueHistoryList'),
+    simulationTimerToggle: document.getElementById('simulationTimerToggle')
   }
   const sharedHistory = createSharedHistory({ list: () => getCloudHistory(), onChange: renderSharedHistory })
   const mqttPersistence = createMqttPersistence({ save: saveCloudRecord, refresh: options => sharedHistory.refresh(options) })
   let feed
   let connectionState = STATES.CONNECTING
   let sharedHistoryError = null
+  let lastBriefingContext = ''
+  let activeUtterance = null
 
   function visibleHistory(nodeId) {
     return createNodeView({ nodeId, cloudRecords: sharedHistory.records, mqttRecords: stores.mqtt.getHistory(nodeId),
@@ -187,17 +214,227 @@
     })
   }
 
+  function eventTime(value) {
+    if (!value) return '尚未记录'
+    const timestamp = Date.parse(value)
+    return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString('zh-CN') : String(value)
+  }
+
+  function appendDefinitionList(parent, items, className) {
+    const list = document.createElement('dl')
+    list.className = className
+    items.forEach(([label, value]) => {
+      const item = document.createElement('div')
+      const term = document.createElement('dt')
+      const detail = document.createElement('dd')
+      term.textContent = label
+      detail.textContent = value || '—'
+      item.append(term, detail)
+      list.append(item)
+    })
+    parent.append(list)
+  }
+
+  function readingLabel(reading) {
+    if (!reading) return '尚未验证'
+    return reading.status + ' · ' + reading.temperature.toFixed(1) + '℃ / ' + reading.humidity.toFixed(1) + '%'
+  }
+
+  function makeIssuePriority(priority, reason) {
+    const badge = document.createElement('span')
+    badge.className = 'issue-priority'
+    badge.dataset.priority = priority
+    badge.textContent = priority
+    badge.title = reason
+    return badge
+  }
+
+  function renderIssuePanel() {
+    if (!feed) return
+    const sourceMode = feed.mode
+    const allEvents = issueEvents.getEvents()
+    const active = allEvents.filter(event => event.sourceMode === sourceMode && event.state !== 'resolved')
+      .sort((left, right) => {
+        const rank = { '优先处理': 0, '关注': 1, '普通': 2 }
+        return (rank[left.priority] ?? 3) - (rank[right.priority] ?? 3) || left.nodeId.localeCompare(right.nodeId)
+      })
+    ui.issueModeLabel.textContent = sourceMode === MODES.SIMULATION ? '模拟事件 · 仅本机保存' : '实时 MQTT 事件'
+    ui.issueSummary.textContent = active.length
+      ? active[0].nodeId + ' 当前为“' + active[0].priority + '”：' + active[0].priorityReason
+      : '当前数据源没有待处理异常；新数据会按现有九状态规则自动检查。'
+    if (issueEvents.persistenceError) ui.issueSummary.textContent += ' ' + issueEvents.persistenceError
+
+    ui.activeIssueList.replaceChildren()
+    if (!active.length) {
+      const empty = document.createElement('p')
+      empty.className = 'issue-empty'
+      empty.textContent = sourceMode === MODES.SIMULATION
+        ? '模拟数据尚未形成待处理异常；该模式产生的事件只保存在本机。'
+        : '暂未发现待处理异常。'
+      ui.activeIssueList.append(empty)
+    }
+    active.forEach(issue => {
+      const card = document.createElement('article')
+      card.className = 'issue-card'
+      card.dataset.state = issue.state
+      const header = document.createElement('div')
+      header.className = 'issue-card-head'
+      const title = document.createElement('h3')
+      title.textContent = issue.nodeId + ' · ' + issue.issueStatus
+      header.append(title, makeIssuePriority(issue.priority, issue.priorityReason))
+      card.append(header)
+      const description = document.createElement('p')
+      description.className = 'issue-description'
+      description.textContent = issue.issueDescription
+      card.append(description)
+      appendDefinitionList(card, [
+        ['温度', issue.current.temperature.toFixed(1) + '℃'],
+        ['湿度', issue.current.humidity.toFixed(1) + '%'],
+        ['状态', issue.current.status],
+        ['发现时间', eventTime(issue.detectedAt)]
+      ], 'issue-reading-grid')
+      if (issue.state === 'open') {
+        const actionRow = document.createElement('div')
+        actionRow.className = 'issue-action-row'
+        const label = document.createElement('label')
+        label.textContent = '处理措施'
+        const select = document.createElement('select')
+        select.setAttribute('aria-label', issue.nodeId + ' 处理措施')
+        ;['开启风扇并通风', '开窗通风', '开启除湿并通风', '加强保暖并减少通风'].forEach(action => {
+          const option = document.createElement('option')
+          option.value = action
+          option.textContent = action
+          select.append(option)
+        })
+        label.append(select)
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.dataset.issueEventId = issue.eventId
+        button.textContent = '开始处理'
+        actionRow.append(label, button)
+        card.append(actionRow)
+      } else {
+        const progress = document.createElement('p')
+        progress.className = 'issue-processing-note'
+        progress.textContent = '处理中：' + issue.action + '；恢复验证 ' + issue.recoverySamples + '/' + issueEvents.recoverySamples + ' 批正常数据。点击操作不会直接结案。'
+        card.append(progress)
+      }
+      ui.activeIssueList.append(card)
+    })
+
+    ui.issueHistoryCount.textContent = allEvents.length + ' 条'
+    ui.issueHistoryList.replaceChildren()
+    if (!allEvents.length) {
+      const empty = document.createElement('p')
+      empty.className = 'issue-empty'
+      empty.textContent = '发现异常后，完整处理过程会保存在这里。'
+      ui.issueHistoryList.append(empty)
+      return
+    }
+    allEvents.forEach(issue => {
+      const card = document.createElement('article')
+      card.className = 'issue-history-card'
+      card.dataset.state = issue.state
+      const header = document.createElement('div')
+      header.className = 'issue-history-head'
+      const title = document.createElement('h4')
+      title.textContent = issue.nodeId + ' · ' + issue.issueStatus
+      const state = document.createElement('span')
+      state.className = 'issue-history-state'
+      state.textContent = issue.state === 'resolved' ? '已恢复' : issue.state === 'processing' ? '处理中' : '待处理'
+      header.append(title, state)
+      card.append(header, makeIssuePriority(issue.priority, issue.priorityReason))
+      const description = document.createElement('p')
+      description.className = 'issue-description'
+      description.textContent = issue.issueDescription
+      card.append(description)
+      appendDefinitionList(card, [
+        ['宿舍', issue.nodeId],
+        ['数据来源', issue.source],
+        ['优先级原因', issue.priorityReason],
+        ['处理措施', issue.action || '未记录'],
+        ['处理前', readingLabel(issue.before)],
+        ['处理后', readingLabel(issue.after)],
+        ['发现时间', eventTime(issue.detectedAt)],
+        ['处理开始', eventTime(issue.actionStartedAt)],
+        ['处理结束', eventTime(issue.resolvedAt)]
+      ], 'issue-history-fields')
+      const result = document.createElement('p')
+      result.className = 'issue-result'
+      result.textContent = '结果：' + issue.result
+      card.append(result)
+      ui.issueHistoryList.append(card)
+    })
+  }
+
+  function renderBriefing({ summary, overview, digest, trend, selectedNodeId }) {
+    ui.currentSummary.textContent = summary.summarySentence
+    ui.briefingSource.textContent = summary.source
+    ui.briefingTime.textContent = summary.updatedAt
+    ui.briefingStatus.textContent = summary.status
+    ui.briefingBasis.textContent = summary.reason
+    ui.briefingAdvice.textContent = summary.advice || '暂无现有建议。'
+    ui.speakSummaryButton.disabled = !summary.hasData
+    ui.overviewFocus.textContent = overview.focus.message
+    ui.dormOverview.replaceChildren()
+    overview.dorms.forEach(room => {
+      const card = document.createElement('article')
+      card.className = 'dorm-overview-card'
+      card.dataset.selected = String(room.nodeId === selectedNodeId)
+      card.dataset.attention = room.attention
+      const header = document.createElement('div')
+      header.className = 'dorm-overview-head'
+      const name = document.createElement('h3')
+      name.textContent = room.nodeId
+      const badge = document.createElement('span')
+      badge.className = 'dorm-attention-badge'
+      badge.textContent = room.attention
+      header.append(name, badge)
+      const reading = document.createElement('p')
+      reading.className = 'dorm-overview-reading'
+      reading.textContent = room.hasData ? room.temperature + '℃ / ' + room.humidity + '%' : '等待有效数据'
+      const status = document.createElement('p')
+      status.className = 'dorm-overview-status'
+      status.textContent = '当前状态：' + room.status
+      const issue = document.createElement('p')
+      issue.className = 'dorm-overview-issue'
+      issue.textContent = '问题处理：' + room.issueState
+      card.append(header, reading, status, issue)
+      ui.dormOverview.append(card)
+    })
+    ui.eventDigestPeriod.textContent = digest.period
+    ui.eventDigestStatus.textContent = digest.message
+    ui.recentEventList.replaceChildren()
+    digest.events.forEach(event => {
+      const row = document.createElement('li')
+      row.className = 'recent-event'
+      row.dataset.state = event.state
+      const heading = document.createElement('strong')
+      heading.textContent = event.nodeId + ' · ' + event.issueStatus + ' · ' + event.stateLabel + '（' + event.priority + '）'
+      const description = document.createElement('span')
+      description.textContent = event.description
+      const detail = document.createElement('span')
+      detail.textContent = event.detail
+      row.append(heading, description, detail)
+      ui.recentEventList.append(row)
+    })
+    ui.trendExplanation.textContent = trend.message
+  }
+
   function render() {
     if (!feed) return
     const store = feed.store
     const snapshot = store.snapshot()
+    const nodeIds = simulation.NODES.map(node => node.nodeId)
+    const histories = Object.fromEntries(nodeIds.map(nodeId => [nodeId, visibleHistory(nodeId)]))
+    const activeIssues = Object.fromEntries(nodeIds.map(nodeId => [nodeId, issueEvents.getActive(nodeId, feed.mode)]))
     simulation.NODES.forEach(({ nodeId }) => {
       const item = nodeButtons.get(nodeId)
-      const nodeHistory = visibleHistory(nodeId)
+      const nodeHistory = histories[nodeId]
       item.button.setAttribute('aria-pressed', String(nodeId === snapshot.selectedNodeId))
       item.status.textContent = nodeHistory.length ? nodeHistory[nodeHistory.length - 1].status : '等待数据'
     })
-    const history = visibleHistory(snapshot.selectedNodeId)
+    const history = histories[snapshot.selectedNodeId]
     const current = history.length ? history[history.length - 1] : null
     let currentStatus = ''
     ui.nodeHeading.textContent = snapshot.selectedNodeId
@@ -227,11 +464,32 @@
     ui.humidityRange.textContent = rangeLabel(history, 'humidity', ' %')
     drawChart(ui.temperatureChart, history, 'temperature', palette.getPropertyValue('--temperature').trim(), '℃')
     drawChart(ui.humidityChart, history, 'humidity', palette.getPropertyValue('--humidity').trim(), '%')
+    const stateRecord = current ? { ...current, nodeId: current.nodeId || snapshot.selectedNodeId, status: currentStatus } : null
+    const sourceEvents = issueEvents.getEvents({ sourceMode: feed.mode })
+    const summary = buildCurrentSummary({ nodeId: snapshot.selectedNodeId, record: stateRecord,
+      activeIssue: activeIssues[snapshot.selectedNodeId] })
+    const overview = buildDormOverview({ nodeIds, histories, activeIssues })
+    const digest = buildRecentEvents(sourceEvents, { sourceMode: feed.mode })
+    const trend = buildTrendSummary(history, { currentStatus, events: sourceEvents })
+    const briefingContext = feed.mode + ':' + snapshot.selectedNodeId
+    if (lastBriefingContext !== briefingContext) {
+      if (lastBriefingContext && 'speechSynthesis' in window) {
+        activeUtterance = null
+        window.speechSynthesis.cancel()
+      }
+      ui.summarySpeechStatus.textContent = ''
+      lastBriefingContext = briefingContext
+    }
+    renderBriefing({ summary, overview, digest, trend, selectedNodeId: snapshot.selectedNodeId })
+    window.DormMateTaskCBriefing?.render(snapshot.selectedNodeId)
     const dashboardState = {
       nodeId: snapshot.selectedNodeId,
       mode: feed.mode,
-      record: current ? { ...current, nodeId: current.nodeId || snapshot.selectedNodeId, status: currentStatus } : null
+      record: stateRecord,
+      issue: activeIssues[snapshot.selectedNodeId],
+      briefing: summary
     }
+    renderIssuePanel()
     window.DormMateDashboardState = dashboardState
     window.dispatchEvent(new CustomEvent('dormmate:dashboard-state', { detail: dashboardState }))
   }
@@ -244,6 +502,13 @@
     ui.introNote.textContent = usingMqtt
       ? '通过 WebSocket 接收 dormmate/+/env，切换节点查看各自的实时记录与趋势。'
       : '本地模拟样本持续刷新，切换节点查看各自独立的记录与趋势。'
+    ui.simulateSampleButton.disabled = usingMqtt
+    ui.simulationTimerToggle.hidden = usingMqtt
+    ui.simulationTimerToggle.textContent = feed.simulationPaused ? '继续自动模拟刷新' : '暂停自动模拟刷新'
+    if (usingMqtt) ui.simulationSampleStatus.textContent = '请切换到模拟模式后注入样本；样本只进入本机模拟 Store，不写 CloudBase。'
+    else ui.simulationSampleStatus.textContent = feed.simulationPaused
+      ? '随机模拟刷新已暂停；可手动注入 dorm-a 的异常和恢复样本。'
+      : '随机模拟刷新运行中；为验证恢复流程，请先暂停刷新再注入样本。'
   }
 
   const connectionLabels = {
@@ -269,6 +534,10 @@
   feed = createDashboardFeed({
     stores,
     onChange: render,
+    onRecord: (record, source) => {
+      const analysis = window.DormMateRules.analyzeEnvironment(record.temperature, record.humidity)
+      issueEvents.observeReading({ ...record, status: record.status || analysis.status, advice: record.advice || analysis.advice }, source)
+    },
     onInvalid: (result, source) => {
       ui.feedStatus.textContent = (source === MODES.MQTT ? '已忽略无效 MQTT 消息：' : '已忽略模拟消息：') + (result.error || '消息无效')
     }
@@ -306,6 +575,36 @@
       else ui.feedStatus.textContent = '等待 MQTT 恢复；可随时切回模拟演示。'
     }
   })
+  ui.simulationTimerToggle.addEventListener('click', () => {
+    const paused = !feed.simulationPaused
+    if (feed.setSimulationPaused(paused)) updateModeUi()
+  })
+  ui.speakSummaryButton.addEventListener('click', () => {
+    const summary = window.DormMateDashboardState?.briefing
+    if (!summary?.hasData) {
+      ui.summarySpeechStatus.textContent = '当前宿舍暂无可播报的环境数据。'
+      return
+    }
+    if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
+      ui.summarySpeechStatus.textContent = '当前浏览器不支持语音播报。'
+      return
+    }
+    window.speechSynthesis.cancel()
+    const utterance = new window.SpeechSynthesisUtterance(summary.speechText)
+    utterance.lang = 'zh-CN'
+    utterance.rate = 1
+    utterance.pitch = 1
+    utterance.volume = 1
+    activeUtterance = utterance
+    ui.summarySpeechStatus.textContent = '正在播报 ' + summary.nodeId + ' 的当前环境摘要…'
+    utterance.onend = () => {
+      if (activeUtterance === utterance) ui.summarySpeechStatus.textContent = '当前环境摘要播报完成。'
+    }
+    utterance.onerror = () => {
+      if (activeUtterance === utterance) ui.summarySpeechStatus.textContent = '浏览器未能完成播报，请检查语音功能。'
+    }
+    window.speechSynthesis.speak(utterance)
+  })
   ui.refreshSharedHistory.addEventListener('click', () => { sharedHistory.refresh() })
   ui.historyScope.addEventListener('change', () => renderSharedHistory({ records: sharedHistory.records, error: sharedHistoryError }))
   ui.exportSharedCsv.addEventListener('click', () => {
@@ -321,6 +620,18 @@
     link.remove()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   })
+  ui.activeIssueList.addEventListener('click', event => {
+    const button = event.target.closest('[data-issue-event-id]')
+    if (!button) return
+    const card = button.closest('.issue-card')
+    const action = card && card.querySelector('select')
+    const result = issueEvents.startProcessing(button.dataset.issueEventId, action && action.value)
+    if (!result.accepted) {
+      ui.issueSummary.textContent = result.error
+      return
+    }
+    render()
+  })
   function analyzeEntry() {
     const measured = window.DormMateRules.validateEnvironment(ui.entryTemperature.value, ui.entryHumidity.value)
     if (!measured.valid) { ui.entryAnalysis.textContent = measured.error; return null }
@@ -329,6 +640,28 @@
     return measured
   }
   ui.analyzeEntryButton.addEventListener('click', analyzeEntry)
+  ui.simulateSampleButton.addEventListener('click', () => {
+    if (feed.mode !== MODES.SIMULATION) return
+    if (!feed.simulationPaused) {
+      ui.simulationSampleStatus.textContent = '请先暂停自动模拟刷新，避免随机样本打断恢复验证。'
+      return
+    }
+    const measured = window.DormMateRules.validateEnvironment(ui.entryTemperature.value, ui.entryHumidity.value)
+    if (!measured.valid) {
+      ui.simulationSampleStatus.textContent = measured.error
+      return
+    }
+    const nodeId = feed.store.snapshot().selectedNodeId
+    const message = window.DormMateMqttMessage.createMessage({
+      nodeId, temperature: measured.temperature, humidity: measured.humidity,
+      recordId: 'task-a-sim-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10),
+      time: new Date().toISOString()
+    })
+    const result = feed.ingestSimulation(message)
+    ui.simulationSampleStatus.textContent = result.accepted
+      ? nodeId + ' 已注入本地模拟样本：' + result.record.status + ' · ' + result.record.temperature + '℃ / ' + result.record.humidity + '%；未写入 CloudBase。'
+      : '模拟样本未注入：' + (result.error || '数据无效')
+  })
   ui.recordForm.addEventListener('submit', async event => {
     event.preventDefault()
     if (ui.saveRecordButton.disabled) return
@@ -355,6 +688,7 @@
 
   window.addEventListener('resize', render)
   window.addEventListener('pagehide', () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     feed.destroy()
     transport.stop()
   }, { once: true })

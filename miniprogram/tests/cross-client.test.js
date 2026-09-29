@@ -25,7 +25,7 @@ test('Web、小程序和 MQTT 共用一份云端历史与 recordId 去重', asyn
   let logins = 0
   const sdk = { init({ env }) {
     assert.equal(env, 'cloudbase-d6g6fprx873111e6a')
-    return { auth: { async signInAnonymously() { logins++ } }, callFunction }
+    return { auth() { return { async signInAnonymously() { logins++ }, async loginScope() { return 'anonymous' } } }, callFunction }
   } }
   const webContext = { window: { cloudbase: sdk }, cloudbase: sdk, Date, Error }
   vm.createContext(webContext)
@@ -56,5 +56,5 @@ test('Web、小程序和 MQTT 共用一份云端历史与 recordId 去重', asyn
   vm.createContext(reloaded)
   vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../cloudRecords.js'), 'utf8'), reloaded)
   assert.equal((await vm.runInContext('getCloudHistory()', reloaded)).length, 3)
-  assert.ok(logins >= 3)
+  assert.equal(logins, 2, '每个独立 Web 页面上下文各进行一次匿名登录')
 })

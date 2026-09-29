@@ -17,6 +17,7 @@
     setIntervalFn = root.setInterval,
     clearIntervalFn = root.clearInterval,
     onChange = () => undefined,
+    onRecord = () => undefined,
     onInvalid = () => undefined
   } = {}) {
     if (!stores || !stores[MODES.MQTT] || !stores[MODES.SIMULATION]) {
@@ -26,6 +27,7 @@
 
     let mode = MODES.MQTT
     let simulationTimer = null
+    let simulationPaused = false
     const sequenceByNode = Object.fromEntries(simulation.NODES.map(node => [node.nodeId, 0]))
 
     function notifyChange() {
@@ -39,15 +41,31 @@
       catch (_) {}
     }
 
+    function reportRecord(result, source) {
+      if (!result || !result.accepted || !result.record) return
+      try { onRecord({ ...result.record }, source) }
+      catch (_) {}
+    }
+
+    function ingestSimulation(message, shouldNotify = true) {
+      let result
+      try { result = stores[MODES.SIMULATION].ingest(messageApi.topicForNode(message && message.nodeId), JSON.stringify(message)) }
+      catch (error) { result = { accepted: false, error: error.message || '模拟消息无效' } }
+      if (result.accepted) {
+        reportRecord(result, MODES.SIMULATION)
+        if (shouldNotify && mode === MODES.SIMULATION) notifyChange()
+      } else reportInvalid(result, MODES.SIMULATION)
+      return result
+    }
+
     function appendSimulatedSamples(shouldNotify = true) {
-      if (mode !== MODES.SIMULATION) return []
+      if (mode !== MODES.SIMULATION || simulationPaused) return []
       const results = []
       simulation.NODES.forEach(({ nodeId }) => {
         try {
           const message = simulation.createNodeMessage(nodeId, sequenceByNode[nodeId]++)
-          const result = stores[MODES.SIMULATION].ingest(messageApi.topicForNode(nodeId), JSON.stringify(message))
+          const result = ingestSimulation(message, false)
           results.push(result)
-          if (!result.accepted) reportInvalid(result, MODES.SIMULATION)
         } catch (error) {
           const result = { accepted: false, error: error.message || '模拟消息无效' }
           results.push(result)
@@ -63,6 +81,7 @@
       try { result = stores[MODES.MQTT].ingest(topic, payload) }
       catch (error) { result = { accepted: false, error: error.message || 'MQTT 消息无效' } }
       if (result.accepted) {
+        reportRecord(result, MODES.MQTT)
         if (mode === MODES.MQTT) notifyChange()
       } else {
         reportInvalid(result, MODES.MQTT)
@@ -77,9 +96,11 @@
       if (nextMode === MODES.MQTT) {
         if (simulationTimer !== null) clearIntervalFn(simulationTimer)
         simulationTimer = null
+        simulationPaused = false
         mode = MODES.MQTT
       } else {
         mode = MODES.SIMULATION
+        simulationPaused = false
         appendSimulatedSamples(false)
         simulationTimer = setIntervalFn(appendSimulatedSamples, intervalMs)
       }
@@ -90,12 +111,25 @@
     function destroy() {
       if (simulationTimer !== null) clearIntervalFn(simulationTimer)
       simulationTimer = null
+      simulationPaused = false
     }
 
-    const feed = { ingestMqtt, setMode, appendSimulatedSamples, destroy, nodeIds: simulation.NODES.map(node => node.nodeId) }
+    function setSimulationPaused(paused) {
+      if (mode !== MODES.SIMULATION) return false
+      const next = Boolean(paused)
+      if (next === simulationPaused) return true
+      simulationPaused = next
+      if (simulationTimer !== null) clearIntervalFn(simulationTimer)
+      simulationTimer = next ? null : setIntervalFn(appendSimulatedSamples, intervalMs)
+      return true
+    }
+
+    const feed = { ingestMqtt, ingestSimulation: message => ingestSimulation(message), setMode, setSimulationPaused,
+      appendSimulatedSamples, destroy, nodeIds: simulation.NODES.map(node => node.nodeId) }
     Object.defineProperties(feed, {
       mode: { enumerable: true, get: () => mode },
       store: { enumerable: true, get: () => stores[mode] },
+      simulationPaused: { enumerable: true, get: () => simulationPaused },
       simulationTimerActive: { enumerable: true, get: () => simulationTimer !== null }
     })
     return feed

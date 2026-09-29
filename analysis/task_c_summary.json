@@ -1,0 +1,65 @@
+{
+  "generatedAt": "2026-09-29T17:43:25.928842+00:00",
+  "dataSource": "独立 CSV：模拟历史样本 / 模拟待测样本；非真实传感器，未写入 CloudBase",
+  "model": {
+    "name": "IsolationForest",
+    "features": [
+      "temperature",
+      "humidity"
+    ],
+    "n_estimators": 100,
+    "contamination": "auto",
+    "random_state": 42,
+    "minimumTrainingSamples": 30
+  },
+  "nodes": {
+    "dorm-a": {
+      "nodeId": "dorm-a",
+      "trainingSamples": 40,
+      "evaluationSamples": 12,
+      "analyzedSamples": 12,
+      "available": true,
+      "message": "分析完成",
+      "ruleAbnormal": 4,
+      "mlAbnormal": 8,
+      "counts": {
+        "both_normal": 4,
+        "both_abnormal": 4,
+        "rule_only": 0,
+        "ml_only": 4
+      }
+    },
+    "dorm-b": {
+      "nodeId": "dorm-b",
+      "trainingSamples": 0,
+      "evaluationSamples": 0,
+      "analyzedSamples": 0,
+      "available": false,
+      "message": "历史样本不足，暂不进行 ML 分析。",
+      "ruleAbnormal": 0,
+      "mlAbnormal": 0,
+      "counts": {
+        "both_normal": 0,
+        "both_abnormal": 0,
+        "rule_only": 0,
+        "ml_only": 0
+      }
+    },
+    "dorm-c": {
+      "nodeId": "dorm-c",
+      "trainingSamples": 0,
+      "evaluationSamples": 0,
+      "analyzedSamples": 0,
+      "available": false,
+      "message": "历史样本不足，暂不进行 ML 分析。",
+      "ruleAbnormal": 0,
+      "mlAbnormal": 0,
+      "counts": {
+        "both_normal": 0,
+        "both_abnormal": 0,
+        "rule_only": 0,
+        "ml_only": 0
+      }
+    }
+  }
+}

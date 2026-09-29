@@ -20,6 +20,9 @@
   <script defer src="dashboardCsv.js"></script>
   <script defer src="dashboardMqttPersistence.js"></script>
   <script defer src="dashboardNodeView.js"></script>
+  <script defer src="dashboardIssueEvents.js"></script>
+  <script defer src="dashboardBriefing.js"></script>
+  <script defer src="taskCBriefing.js"></script>
   <script defer src="dashboard.js"></script>
 </head>
 <body>
@@ -71,6 +74,36 @@
         </div>
       </section>
 
+      <section class="briefing-section" aria-labelledby="briefingHeading">
+        <div class="briefing-main">
+          <div class="briefing-heading-row">
+            <div><p class="eyebrow">当前摘要</p><h2 id="briefingHeading">这间宿舍现在怎样</h2></div>
+            <button id="speakSummaryButton" type="button" disabled>播报当前摘要</button>
+          </div>
+          <p class="briefing-sentence" id="currentSummary" aria-live="polite">收到当前宿舍数据后显示摘要。</p>
+          <dl class="briefing-meta">
+            <div><dt>数据来源</dt><dd id="briefingSource">—</dd></div>
+            <div><dt>最近更新时间</dt><dd id="briefingTime">—</dd></div>
+          </dl>
+          <p class="briefing-speech-status" id="summarySpeechStatus" role="status" aria-live="polite"></p>
+        </div>
+        <aside class="briefing-reason" aria-labelledby="reasonHeading">
+          <p class="eyebrow">判断依据</p>
+          <h3 id="reasonHeading">为什么这样判断</h3>
+          <p><strong>状态</strong><span id="briefingStatus">等待数据</span></p>
+          <p><strong>依据</strong><span id="briefingBasis">收到记录后说明现有规则结果。</span></p>
+          <p><strong>建议</strong><span id="briefingAdvice">收到记录后显示现有建议。</span></p>
+        </aside>
+      </section>
+
+      <section class="overview-section" aria-labelledby="overviewHeading">
+        <div class="section-heading">
+          <div><p class="eyebrow">三宿舍总览</p><h2 id="overviewHeading">现在先关注哪里</h2></div>
+          <p class="overview-focus" id="overviewFocus" role="status" aria-live="polite">等待三宿舍数据。</p>
+        </div>
+        <div class="dorm-overview-grid" id="dormOverview"></div>
+      </section>
+
       <section class="m6-scene-section" aria-labelledby="m6SceneHeading">
         <div class="section-heading">
           <div><p class="eyebrow">M6 · 3D 状态联动</p><h2 id="m6SceneHeading">当前宿舍空间</h2></div>
@@ -99,14 +132,39 @@
       <section class="entry-section" aria-labelledby="entryHeading">
         <div class="section-heading"><div><p class="eyebrow">业务记录</p><h2 id="entryHeading">为当前宿舍录入环境数据</h2></div></div>
         <form id="recordForm" class="entry-form">
-          <p>保存到 <strong id="entryNodeId">dorm-a</strong>；模拟演示画面不会自动保存。</p>
+          <p>保存到 <strong id="entryNodeId">dorm-a</strong>；模拟样本需显式注入且只保存在本机。</p>
           <label>温度（℃）<input id="entryTemperature" name="temperature" type="number" min="0" max="50" step="0.1" required></label>
           <label>湿度（%）<input id="entryHumidity" name="humidity" type="number" min="0" max="100" step="0.1" required></label>
           <button id="analyzeEntryButton" class="analyze-button" type="button">分析环境</button>
           <button id="saveRecordButton" type="submit">保存共享记录</button>
+          <button id="simulateSampleButton" class="simulation-button" type="button" disabled>仅注入本地模拟数据</button>
         </form>
         <p id="entryAnalysis" role="status" aria-live="polite">分析结果将在这里显示；分析本身不会保存记录。</p>
         <p id="saveRecordStatus" role="status" aria-live="polite">请选择宿舍并输入一次有效测量。</p>
+        <p id="simulationSampleStatus" class="simulation-sample-status" role="status" aria-live="polite">模拟注入仅在模拟模式可用，不写入 CloudBase。</p>
+      </section>
+
+      <section class="issue-section" aria-labelledby="issueHeading">
+        <div class="section-heading">
+          <div><p class="eyebrow">A · 问题闭环</p><h2 id="issueHeading">异常处理与验证</h2></div>
+          <div class="issue-heading-actions">
+            <span class="issue-mode-label" id="issueModeLabel">实时 MQTT 事件</span>
+            <button id="simulationTimerToggle" class="simulation-pause-toggle" type="button" hidden>暂停自动模拟刷新</button>
+          </div>
+        </div>
+        <p class="issue-summary" id="issueSummary" role="status" aria-live="polite">等待有效环境数据。</p>
+        <div class="event-digest" aria-labelledby="eventDigestHeading">
+          <div class="event-digest-heading"><h3 id="eventDigestHeading">近期环境事件</h3><span id="eventDigestPeriod">最近 24 小时及仍未结束的事件</span></div>
+          <p id="eventDigestStatus" role="status" aria-live="polite">暂无需要处理的环境事件。</p>
+          <ul id="recentEventList"></ul>
+        </div>
+        <div class="active-issue-list" id="activeIssueList"></div>
+        <p class="issue-policy-note">处理操作只记录措施；恢复需在处理开始后收到连续 2 批正常数据。模拟演示事件只保存在本机，不写入 CloudBase。</p>
+        <div class="section-heading issue-history-heading">
+          <div><p class="eyebrow">可回顾的闭环</p><h3>问题处理记录</h3></div>
+          <span class="issue-history-count" id="issueHistoryCount">0 条</span>
+        </div>
+        <div class="issue-history-list" id="issueHistoryList"></div>
       </section>
 
       <section class="trend-section" aria-labelledby="trendHeading">
@@ -127,8 +185,18 @@
             <canvas id="humidityChart" aria-label="当前节点湿度趋势图" role="img"></canvas>
           </figure>
         </div>
+        <p class="trend-explanation" id="trendExplanation" role="status" aria-live="polite">历史数据不足，暂不生成趋势结论。</p>
         <p class="chart-footnote" id="feedStatus" aria-live="polite">正在连接 ws://127.0.0.1:9001；每个节点最多保留 50 条记录。</p>
         <p class="chart-footnote" id="mqttSyncStatus" role="status">MQTT 业务记录将按 recordId 同步到共享历史。</p>
+      </section>
+
+      <section class="task-c-section" id="taskCAnalysis" aria-labelledby="taskCHeading">
+        <div class="section-heading"><div><p class="eyebrow">C · 历史异常分析</p><h2 id="taskCHeading">Rule vs ML · <span id="taskCNode">dorm-a</span></h2></div>
+          <a class="task-c-report-link" href="../analysis/report.html#task-c-analysis">打开完整分析报告</a></div>
+        <p id="taskCStatus" role="status">正在读取离线分析结果…</p>
+        <div class="task-c-metrics" id="taskCMetrics"></div>
+        <p class="task-c-source" id="taskCSource"></p>
+        <p class="task-c-note">分析结果来自独立 Python 报告，不更改当前宿舍的九状态判断或 CloudBase 历史。</p>
       </section>
 
       <section class="shared-section" aria-labelledby="sharedHeading">

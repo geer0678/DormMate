@@ -133,3 +133,55 @@ test('MQTT mode never starts the simulation timer; switching modes isolates both
   assert.equal(stores.simulation.getHistory('dorm-b').length, 2)
   feed.destroy()
 })
+
+test('DashboardFeed 将已接受的数据转给事件层一次，且按 MQTT 和模拟来源隔离', () => {
+  const stores = { mqtt: createDashboardStore(), simulation: createDashboardStore() }
+  const observed = []
+  const feed = createDashboardFeed({
+    stores,
+    onRecord: (record, source) => observed.push({ nodeId: record.nodeId, recordId: record.recordId, source })
+  })
+  const mqtt = makeMessage('dorm-b', 'issue-feed-mqtt-001', 31, 78)
+  assert.equal(feed.ingestMqtt(messageApi.topicForNode('dorm-b'), JSON.stringify(mqtt)).accepted, true)
+  assert.equal(feed.ingestMqtt(messageApi.topicForNode('dorm-b'), JSON.stringify(mqtt)).duplicate, true)
+  assert.equal(observed.length, 1)
+  assert.deepEqual(observed[0], { nodeId: 'dorm-b', recordId: 'issue-feed-mqtt-001', source: MODES.MQTT })
+
+  feed.setMode(MODES.SIMULATION)
+  assert.equal(observed.length, 4)
+  assert.deepEqual(observed.slice(1).map(item => item.source), [MODES.SIMULATION, MODES.SIMULATION, MODES.SIMULATION])
+  assert.equal(stores.mqtt.getHistory('dorm-a').length, 0)
+  assert.equal(stores.simulation.getHistory('dorm-a').length, 1)
+  feed.destroy()
+})
+
+test('模拟刷新可暂停；手动样本仍走独立模拟 Store 和事件回调', () => {
+  const stores = { mqtt: createDashboardStore(), simulation: createDashboardStore() }
+  const observed = []
+  const timers = []
+  const cleared = []
+  const feed = createDashboardFeed({
+    stores,
+    setIntervalFn(callback, interval) { timers.push({ callback, interval }); return timers.length },
+    clearIntervalFn(id) { cleared.push(id) },
+    onRecord: (record, source) => observed.push({ record, source })
+  })
+  feed.setMode(MODES.SIMULATION)
+  assert.equal(observed.length, 3)
+  assert.equal(feed.setSimulationPaused(true), true)
+  assert.equal(feed.simulationPaused, true)
+  assert.equal(feed.simulationTimerActive, false)
+  const before = stores.simulation.getHistory('dorm-a').length
+  timers[0].callback()
+  assert.equal(stores.simulation.getHistory('dorm-a').length, before)
+
+  const normal = makeMessage('dorm-a', 'manual-sim-dorm-a-001', 25, 55)
+  assert.equal(feed.ingestSimulation(normal).accepted, true)
+  assert.equal(observed.at(-1).source, MODES.SIMULATION)
+  assert.equal(stores.mqtt.getHistory('dorm-a').length, 0)
+  assert.equal(feed.setSimulationPaused(false), true)
+  assert.equal(feed.simulationTimerActive, true)
+  assert.equal(timers[1].interval, 1800)
+  assert.deepEqual(cleared, [1])
+  feed.destroy()
+})
