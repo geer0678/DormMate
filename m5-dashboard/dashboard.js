@@ -199,6 +199,7 @@
     })
     const history = visibleHistory(snapshot.selectedNodeId)
     const current = history.length ? history[history.length - 1] : null
+    let currentStatus = ''
     ui.nodeHeading.textContent = snapshot.selectedNodeId
     ui.entryNodeId.textContent = snapshot.selectedNodeId
     ui.historyCount.textContent = history.length + ' / 50 条记录'
@@ -211,7 +212,8 @@
       ui.humidityValue.textContent = '--'
     } else {
       const analysis = window.DormMateRules.analyzeEnvironment(current.temperature, current.humidity)
-      ui.statusValue.textContent = current.status || analysis.status
+      currentStatus = current.status || analysis.status
+      ui.statusValue.textContent = currentStatus
       ui.currentAdvice.textContent = current.advice || analysis.advice
       ui.currentSource.textContent = '数据来源：' + current.sourceLabel
       ui.recordTime.textContent = current.timeUnknown
@@ -225,6 +227,13 @@
     ui.humidityRange.textContent = rangeLabel(history, 'humidity', ' %')
     drawChart(ui.temperatureChart, history, 'temperature', palette.getPropertyValue('--temperature').trim(), '℃')
     drawChart(ui.humidityChart, history, 'humidity', palette.getPropertyValue('--humidity').trim(), '%')
+    const dashboardState = {
+      nodeId: snapshot.selectedNodeId,
+      mode: feed.mode,
+      record: current ? { ...current, nodeId: current.nodeId || snapshot.selectedNodeId, status: currentStatus } : null
+    }
+    window.DormMateDashboardState = dashboardState
+    window.dispatchEvent(new CustomEvent('dormmate:dashboard-state', { detail: dashboardState }))
   }
 
   function updateModeUi() {

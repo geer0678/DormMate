@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#e8efed">
-  <title>DormMate · M5 Dashboard</title>
+  <title>DormMate · 实时宿舍空间</title>
   <link rel="stylesheet" href="dashboard.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js"}}</script>
   <script defer src="../miniprogram/utils/dormmate.js"></script>
   <script defer src="../miniprogram/utils/mqttMessage.js"></script>
   <script defer src="../miniprogram/utils/mqttSimulation.js"></script>
@@ -70,6 +71,31 @@
         </div>
       </section>
 
+      <section class="m6-scene-section" aria-labelledby="m6SceneHeading">
+        <div class="section-heading">
+          <div><p class="eyebrow">M6 · 3D 状态联动</p><h2 id="m6SceneHeading">当前宿舍空间</h2></div>
+          <p class="m6-scene-node" id="m6SceneNode">dorm-a</p>
+        </div>
+        <div class="m6-scene-layout">
+          <div class="m6-scene-stage">
+            <canvas id="m6SceneCanvas" aria-label="宿舍三维场景，可拖动旋转并滚轮缩放" role="img"></canvas>
+            <p class="m6-scene-overlay" id="m6SceneOverlay" aria-live="polite">等待当前宿舍数据</p>
+          </div>
+          <aside class="m6-scene-controls" aria-label="3D 状态演示">
+            <p class="eyebrow">空间状态</p>
+            <strong id="m6SceneStatus">等待数据</strong>
+            <p id="m6SceneDescription">场景将跟随当前宿舍的共享状态变化。</p>
+            <div class="m6-demo-controls" role="group" aria-label="本地状态演示">
+              <span>本地演示，不写入共享历史</span>
+              <button type="button" data-scene-status="正常">正常</button>
+              <button type="button" data-scene-status="偏热">偏热</button>
+              <button type="button" data-scene-status="偏湿">偏湿</button>
+            </div>
+            <p class="m6-scene-help">拖动旋转 · 滚轮缩放</p>
+          </aside>
+        </div>
+      </section>
+
       <section class="entry-section" aria-labelledby="entryHeading">
         <div class="section-heading"><div><p class="eyebrow">业务记录</p><h2 id="entryHeading">为当前宿舍录入环境数据</h2></div></div>
         <form id="recordForm" class="entry-form">
@@ -120,5 +146,6 @@
 
     <footer class="footer-line"><span>数据按节点分别维护</span><span>DormMate · M5</span></footer>
   </div>
+  <script type="module" src="m6-3d/sceneController.mjs"></script>
 </body>
 </html>
