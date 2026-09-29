@@ -30,6 +30,13 @@ const history =
     JSON.parse(
         localStorage.getItem("dormMateHistory")
     ) || [];
+let webMqttBridge = null;
+const webRealtimeRecords = new Map();
+let cloudRefresh = null;
+history.forEach(item => {
+    const pending = DormMateMqttRealtime.restorePending(item);
+    if (pending) webRealtimeRecords.set(pending.recordId || pending.id, pending);
+});
 
 
 // ========================================
@@ -51,7 +58,7 @@ function displayHistory() {
             <td>${record.humidity}%</td>
             <td>${record.status}</td>
             <td>${record.advice || "暂无建议"}</td>
-            <td>${record.source === 'web' ? 'Web' : record.source === 'miniprogram' ? '小程序' : '本地缓存'}</td>
+            <td>${record.source === 'web' ? 'Web' : record.source === 'miniprogram' ? '小程序' : record.source === 'mqtt' ? '实时 MQTT' : '本地缓存'}</td>
         `;
 
         historyBody.appendChild(row);
@@ -60,15 +67,35 @@ function displayHistory() {
 
 }
 
-async function refreshSharedHistory() {
+async function refreshSharedHistory(retryPending = true) {
+    if (cloudRefresh) return cloudRefresh;
+    cloudRefresh = loadSharedHistory(retryPending);
+    try { return await cloudRefresh; }
+    finally { cloudRefresh = null; }
+}
+
+async function loadSharedHistory(retryPending) {
     const syncStatus = document.getElementById('syncStatus');
     try {
+        let pendingError = null;
+        if (retryPending) {
+            for (const record of webRealtimeRecords.values()) {
+                try { await saveCloudRecord(record); }
+                catch (error) { pendingError = error; }
+            }
+        }
         const shared = await getCloudHistory();
+        for (const [id, record] of webRealtimeRecords) {
+            if (shared.some(item => (item.recordId || item.id) === id)) webRealtimeRecords.delete(id);
+            else shared.unshift(record);
+        }
         history.splice(0, history.length, ...shared);
         localStorage.setItem('dormMateHistory', JSON.stringify(history));
         displayHistory();
         updateAnalysisOverview();
-        syncStatus.textContent = `共享历史已更新：${shared.length} 条`;
+        syncStatus.textContent = pendingError
+            ? `共享历史已更新；实时记录待同步：${pendingError.message}`
+            : `共享历史已更新：${shared.length} 条`;
         return true;
     } catch (error) {
         syncStatus.textContent = `云端刷新失败，显示本机缓存：${error.message}`;
@@ -185,158 +212,14 @@ analyzeButton.addEventListener(
 "click",
 async function(){
 
-    const temperature =
-        Number(
-            temperatureInput.value
-        );
-
-
-    const humidity =
-        Number(
-            humidityInput.value
-        );
-
-
-    if(
-        temperatureInput.value === "" ||
-        humidityInput.value === "" ||
-        Number.isNaN(temperature) ||
-        Number.isNaN(humidity)
-    ){
-
-        result.innerHTML = `
-            <p>当前状态：输入无效</p>
-            <p>建议：请输入有效的温度和湿度</p>
-        `;
-
+    const validation = DormMateRules.validateEnvironment(temperatureInput.value, humidityInput.value);
+    if (!validation.valid) {
+        result.innerHTML = `<p>当前状态：输入无效</p><p>建议：${validation.error}</p>`;
         return;
-
     }
+    const { temperature, humidity } = validation;
 
-
-    if(
-        temperature < 0 ||
-        temperature > 50 ||
-        humidity < 0 ||
-        humidity > 100
-    ){
-
-        result.innerHTML = `
-            <p>当前状态：输入无效</p>
-            <p>建议：温度应在0～50℃，湿度应在0～100%</p>
-        `;
-
-        return;
-
-    }
-
-
-
-    let status;
-    let advice;
-
-
-
-    let temperatureLevel;
-
-
-    if(temperature < 18){
-
-        temperatureLevel = "cold";
-
-    }
-    else if(temperature >= 30){
-
-        temperatureLevel = "hot";
-
-    }
-    else{
-
-        temperatureLevel = "normal";
-
-    }
-
-
-
-    let humidityLevel;
-
-
-    if(humidity < 40){
-
-        humidityLevel = "dry";
-
-    }
-    else if(humidity >= 75){
-
-        humidityLevel = "humid";
-
-    }
-    else{
-
-        humidityLevel = "normal";
-
-    }
-
-
-
-    const environmentKey =
-        temperatureLevel +
-        "_" +
-        humidityLevel;
-
-
-    const statusMap = {
-        "cold_dry": "偏冷偏干",
-        "cold_normal": "偏冷",
-        "cold_humid": "偏冷偏湿",
-        "normal_dry": "偏干",
-        "normal_normal": "正常",
-        "normal_humid": "偏湿",
-        "hot_dry": "偏热偏干",
-        "hot_normal": "偏热",
-        "hot_humid": "偏热偏湿"
-    };
-
-    status =
-        statusMap[environmentKey] || "正常";
-
-
-
-    const adviceMap = {
-
-        "cold_dry":
-        "当前环境温度较低且空气偏干，建议注意保暖，并适当增加空气湿度。",
-
-        "cold_normal":
-        "当前温度偏低，湿度适宜，建议增加保暖措施。",
-
-        "cold_humid":
-        "当前环境低温高湿，建议加强保暖并保持通风。",
-
-        "normal_dry":
-        "当前温度适宜，但空气偏干，建议适当增加湿度。",
-
-        "normal_normal":
-        "当前温湿度适宜，请继续保持良好通风。",
-
-        "normal_humid":
-        "当前温度适宜，但湿度较高，建议加强通风或除湿。",
-
-        "hot_dry":
-        "当前温度较高且空气偏干，建议适当降温。",
-
-        "hot_normal":
-        "当前温度较高，建议保持空气流通并降低温度。",
-
-        "hot_humid":
-        "当前环境高温高湿，容易产生闷热感，建议加强通风并降低湿度。"
-
-    };
-
-
-    advice =
-        adviceMap[environmentKey];
-
+    const { status, advice } = DormMateRules.analyzeEnvironment(temperature, humidity);
 
     result.innerHTML = `
         <p>当前状态：${status}</p>
@@ -388,6 +271,7 @@ async function(){
     const record = {
 
         time: time,
+        measuredAt: now.toISOString(),
 
         temperature: temperature,
 
@@ -395,7 +279,8 @@ async function(){
 
         status: status,
 
-        advice: advice
+        advice: advice,
+        nodeId: window.DormMateMqttConfig.nodeId
 
     };
 
@@ -403,14 +288,16 @@ async function(){
 
     record.id = 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
     try {
-        await saveCloudRecord(record);
+        await DormMateMqttRealtime.saveThenPublish(record, saveCloudRecord, webMqttBridge);
     } catch (error) {
         document.getElementById('syncStatus').textContent = `云端保存失败，本次记录未保存：${error.message}`;
         return;
     }
-    const refreshed = await refreshSharedHistory();
+    const pending = { ...record, source: 'web', syncPending: true };
+    webRealtimeRecords.set(record.id, pending);
+    const refreshed = await refreshSharedHistory(false);
     if (!refreshed) {
-        history.push({ ...record, source: 'web' });
+        history.push(pending);
         localStorage.setItem('dormMateHistory', JSON.stringify(history));
         displayHistory();
         updateAnalysisOverview();
@@ -530,6 +417,44 @@ displayHistory();
 updateAnalysisOverview();
 document.getElementById('refreshCloudButton').addEventListener('click', refreshSharedHistory);
 refreshSharedHistory();
+
+const webMqttConfig = window.DormMateMqttConfig;
+webMqttBridge = DormMateMqttRealtime.createBridge({
+    mqtt: window.mqtt, url: webMqttConfig.webUrl, nodeId: webMqttConfig.nodeId,
+    topicFilter: webMqttConfig.topicFilter,
+    onStatus: ({ label }) => { document.getElementById('mqttStatus').textContent = `MQTT ${label}`; },
+    onMessage: async record => {
+        const pending = { ...record, syncPending: true };
+        webRealtimeRecords.set(record.recordId, pending);
+        temperatureInput.value = record.temperature;
+        humidityInput.value = record.humidity;
+        result.textContent = `当前状态：${record.status}（${record.nodeId} · ${record.time}） 建议：${record.advice}`;
+        if (history.some(item => (item.recordId || item.id) === record.recordId)) {
+            webRealtimeRecords.delete(record.recordId);
+            return;
+        }
+        history.unshift(pending);
+        localStorage.setItem('dormMateHistory', JSON.stringify(history));
+        displayHistory();
+        updateAnalysisOverview();
+        try {
+            const saved = await saveCloudRecord(record);
+            if (saved.record) {
+                const canonical = cloudRecordToHistory(saved.record);
+                const index = history.findIndex(item => (item.recordId || item.id) === record.recordId);
+                if (index !== -1) history[index] = canonical;
+                localStorage.setItem('dormMateHistory', JSON.stringify(history));
+                displayHistory();
+            }
+            await refreshSharedHistory(false);
+        } catch (error) {
+            document.getElementById('syncStatus').textContent = `实时数据云端保存失败：${error.message}`;
+        }
+    }
+});
+webMqttBridge.start();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshSharedHistory(); });
+setInterval(() => { if (!document.hidden) refreshSharedHistory(); }, 60000);
 
 
 

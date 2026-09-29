@@ -9,11 +9,12 @@ function call(wxApi, data) {
 }
 
 function fromCloud(record) {
-  const raw = record.createdAt && (record.createdAt.$date || record.createdAt)
+  const raw = record.measuredAt || (record.createdAt && (record.createdAt.$date || record.createdAt))
   const date = new Date(raw)
   if (Number.isNaN(date.getTime())) throw new Error('云端记录时间无效')
   return {
     id: record.recordId, recordId: record.recordId, time: formatTime(date),
+    nodeId: record.nodeId, measuredAt: record.measuredAt,
     temperature: record.temperature, humidity: record.humidity,
     status: record.status, advice: record.advice, source: record.source
   }
@@ -31,8 +32,11 @@ async function list(wxApi) {
 }
 
 function add(wxApi, record) {
-  return call(wxApi, { action: 'add', recordId: record.id, source: 'miniprogram',
-    temperature: record.temperature, humidity: record.humidity })
+  return call(wxApi, { action: 'add', recordId: record.recordId || record.id,
+    source: record.source === 'mqtt' ? 'mqtt' : 'miniprogram',
+    temperature: record.temperature, humidity: record.humidity,
+    ...(record.nodeId ? { nodeId: record.nodeId } : {}),
+    ...(record.measuredAt ? { measuredAt: record.measuredAt } : {}) })
 }
 
 module.exports = { list, add, fromCloud }

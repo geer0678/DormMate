@@ -1,9 +1,23 @@
 const { analyzeEnvironment, validateEnvironment } = require('./rules')
 
 const COLLECTION = 'environment_records'
-const SOURCES = new Set(['web', 'miniprogram'])
+const SOURCES = new Set(['web', 'miniprogram', 'mqtt'])
 const MAX_PAGE_SIZE = 100
 const RECORD_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/
+const NODE_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+
+function validMeasuredAt(value) {
+  if (typeof value !== 'string') return false
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-](\d{2}):(\d{2}))$/.exec(value)
+  if (!match) return false
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3])
+  const hour = Number(match[4]), minute = Number(match[5]), second = Number(match[6])
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  if (month < 1 || month > 12 || day < 1 || day > days[month - 1] || hour > 23 || minute > 59 || second > 59) return false
+  if (match[8] && (Number(match[8]) > 23 || Number(match[9]) > 59)) return false
+  return Number.isFinite(Date.parse(value))
+}
 
 function fail(code, error) {
   return { success: false, code, error }
@@ -31,7 +45,16 @@ function createEnvironmentRecordsHandler(cloud) {
     if (typeof recordId !== 'string' || !RECORD_ID_PATTERN.test(recordId)) {
       return fail('INVALID_RECORD_ID', 'recordId 格式无效')
     }
-    if (!SOURCES.has(source)) return fail('INVALID_SOURCE', 'source 只允许 web 或 miniprogram')
+    if (!SOURCES.has(source)) return fail('INVALID_SOURCE', 'source 只允许 web、miniprogram 或 mqtt')
+    if (event.nodeId !== undefined && (typeof event.nodeId !== 'string' || !NODE_ID_PATTERN.test(event.nodeId))) {
+      return fail('INVALID_NODE_ID', 'nodeId 格式无效')
+    }
+    if (event.measuredAt !== undefined && !validMeasuredAt(event.measuredAt)) {
+      return fail('INVALID_MEASURED_AT', 'measuredAt 必须是有效的 ISO 8601 时间')
+    }
+    if (source === 'mqtt' && (!event.nodeId || !event.measuredAt)) {
+      return fail('INVALID_MQTT_RECORD', 'MQTT 记录缺少 nodeId 或 measuredAt')
+    }
 
     const measured = validateEnvironment(event.temperature, event.humidity)
     if (!measured.valid) return fail('INVALID_MEASUREMENT', measured.error)
@@ -43,6 +66,8 @@ function createEnvironmentRecordsHandler(cloud) {
       status: state.status,
       advice: state.advice,
       source,
+      ...(event.nodeId ? { nodeId: event.nodeId } : {}),
+      ...(event.measuredAt ? { measuredAt: event.measuredAt } : {}),
       createdAt: db.serverDate(),
       updatedAt: db.serverDate(),
       schemaVersion: 1

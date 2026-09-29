@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e8efed">
+  <title>DormMate · 实时宿舍空间</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js"}}</script>
+  <script defer src="../miniprogram/utils/dormmate.js"></script>
+  <script defer src="../miniprogram/utils/mqttMessage.js"></script>
+  <script defer src="../miniprogram/utils/mqttSimulation.js"></script>
+  <script defer src="../miniprogram/node_modules/mqtt/dist/mqtt.min.js"></script>
+  <script defer src="https://static.cloudbase.net/cloudbase-js-sdk/2.28.6/cloudbase.full.js"></script>
+  <script defer src="../cloudRecords.js"></script>
+  <script defer src="dashboardStore.js"></script>
+  <script defer src="mqttTransport.js"></script>
+  <script defer src="dashboardFeed.js"></script>
+  <script defer src="dashboardSharedHistory.js"></script>
+  <script defer src="dashboardCsv.js"></script>
+  <script defer src="dashboardMqttPersistence.js"></script>
+  <script defer src="dashboardNodeView.js"></script>
+  <script defer src="dashboard.js"></script>
+</head>
+<body>
+  <div class="dashboard-shell">
+    <header class="topbar">
+      <a class="brand" href="../index.html" aria-label="DormMate 首页">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <span><strong>DormMate</strong><small>宿舍环境观测</small></span>
+      </a>
+      <div class="topbar-meta">
+        <span class="phase-label">M5 · 实时环境</span>
+        <div class="source-controls">
+          <span class="mode-indicator" id="modeIndicator" data-mode="mqtt"><i aria-hidden="true"></i><span id="modeLabel">实时 MQTT</span></span>
+          <span class="connection-status" id="connectionStatus" data-state="connecting" aria-live="polite">MQTT 连接中</span>
+          <button class="mode-toggle" id="modeToggle" type="button">切换到模拟演示</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">房间传感器</p>
+          <h1 id="page-title">环境正在变化</h1>
+        </div>
+        <p class="intro-note" id="introNote">通过 WebSocket 接收 dormmate/+/env，切换节点查看各自的实时记录与趋势。</p>
+      </section>
+
+      <nav class="node-switcher" id="nodeSwitcher" aria-label="选择监测节点"></nav>
+
+      <section class="reading-panel" aria-labelledby="nodeHeading">
+        <div class="reading-lead">
+          <div class="current-heading">
+            <p class="eyebrow">当前节点</p>
+            <h2 id="nodeHeading">dorm-a</h2>
+          </div>
+          <p class="status-readout" id="statusValue" aria-live="polite">等待数据</p>
+          <p class="reading-advice" id="currentAdvice">收到数据后显示建议。</p>
+          <p class="reading-source" id="currentSource">数据来源：--</p>
+          <p class="reading-time">记录时间 <time id="recordTime">--</time></p>
+        </div>
+        <div class="measurement temperature-measure" aria-label="当前温度">
+          <span class="measure-label"><i aria-hidden="true"></i>温度</span>
+          <p><strong id="temperatureValue">--</strong><span>℃</span></p>
+        </div>
+        <div class="measurement humidity-measure" aria-label="当前湿度">
+          <span class="measure-label"><i aria-hidden="true"></i>湿度</span>
+          <p><strong id="humidityValue">--</strong><span>%</span></p>
+        </div>
+      </section>
+
+      <section class="m6-scene-section" aria-labelledby="m6SceneHeading">
+        <div class="section-heading">
+          <div><p class="eyebrow">M6 · 3D 状态联动</p><h2 id="m6SceneHeading">当前宿舍空间</h2></div>
+          <p class="m6-scene-node" id="m6SceneNode">dorm-a</p>
+        </div>
+        <div class="m6-scene-layout">
+          <div class="m6-scene-stage">
+            <canvas id="m6SceneCanvas" aria-label="宿舍三维场景，可拖动旋转并滚轮缩放" role="img"></canvas>
+            <p class="m6-scene-overlay" id="m6SceneOverlay" aria-live="polite">等待当前宿舍数据</p>
+          </div>
+          <aside class="m6-scene-controls" aria-label="3D 状态演示">
+            <p class="eyebrow">空间状态</p>
+            <strong id="m6SceneStatus">等待数据</strong>
+            <p id="m6SceneDescription">场景将跟随当前宿舍的共享状态变化。</p>
+            <div class="m6-demo-controls" role="group" aria-label="本地状态演示">
+              <span>本地演示，不写入共享历史</span>
+              <button type="button" data-scene-status="正常">正常</button>
+              <button type="button" data-scene-status="偏热">偏热</button>
+              <button type="button" data-scene-status="偏湿">偏湿</button>
+            </div>
+            <p class="m6-scene-help">拖动旋转 · 滚轮缩放</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="entry-section" aria-labelledby="entryHeading">
+        <div class="section-heading"><div><p class="eyebrow">业务记录</p><h2 id="entryHeading">为当前宿舍录入环境数据</h2></div></div>
+        <form id="recordForm" class="entry-form">
+          <p>保存到 <strong id="entryNodeId">dorm-a</strong>；模拟演示画面不会自动保存。</p>
+          <label>温度（℃）<input id="entryTemperature" name="temperature" type="number" min="0" max="50" step="0.1" required></label>
+          <label>湿度（%）<input id="entryHumidity" name="humidity" type="number" min="0" max="100" step="0.1" required></label>
+          <button id="analyzeEntryButton" class="analyze-button" type="button">分析环境</button>
+          <button id="saveRecordButton" type="submit">保存共享记录</button>
+        </form>
+        <p id="entryAnalysis" role="status" aria-live="polite">分析结果将在这里显示；分析本身不会保存记录。</p>
+        <p id="saveRecordStatus" role="status" aria-live="polite">请选择宿舍并输入一次有效测量。</p>
+      </section>
+
+      <section class="trend-section" aria-labelledby="trendHeading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">节点记录</p>
+            <h2 id="trendHeading">温湿度趋势</h2>
+          </div>
+          <p class="history-count" id="historyCount">0 / 50 条记录</p>
+        </div>
+        <div class="chart-grid">
+          <figure class="chart-panel temperature-chart">
+            <figcaption><span>温度</span><strong id="temperatureRange">--</strong></figcaption>
+            <canvas id="temperatureChart" aria-label="当前节点温度趋势图" role="img"></canvas>
+          </figure>
+          <figure class="chart-panel humidity-chart">
+            <figcaption><span>湿度</span><strong id="humidityRange">--</strong></figcaption>
+            <canvas id="humidityChart" aria-label="当前节点湿度趋势图" role="img"></canvas>
+          </figure>
+        </div>
+        <p class="chart-footnote" id="feedStatus" aria-live="polite">正在连接 ws://127.0.0.1:9001；每个节点最多保留 50 条记录。</p>
+        <p class="chart-footnote" id="mqttSyncStatus" role="status">MQTT 业务记录将按 recordId 同步到共享历史。</p>
+      </section>
+
+      <section class="shared-section" aria-labelledby="sharedHeading">
+        <div class="section-heading">
+          <div><p class="eyebrow">跨端记录</p><h2 id="sharedHeading">共享历史</h2></div>
+          <div class="shared-actions"><label class="history-scope-label">显示范围<select id="historyScope"><option value="current">当前宿舍</option><option value="all">全部记录</option></select></label><button id="exportSharedCsv" type="button" disabled>导出 CSV</button><button id="refreshSharedHistory" type="button">刷新共享历史</button></div>
+        </div>
+        <p id="sharedStatus" role="status">正在读取共享历史…</p>
+        <div class="shared-table-wrap"><table class="shared-table">
+          <thead><tr><th>记录时间</th><th>节点</th><th>温度</th><th>湿度</th><th>状态</th><th>来源</th></tr></thead>
+          <tbody id="sharedHistoryBody"></tbody>
+        </table></div>
+      </section>
+    </main>
+
+    <footer class="footer-line"><span>数据按节点分别维护</span><span>DormMate · M5</span></footer>
+  </div>
+  <script type="module" src="m6-3d/sceneController.mjs"></script>
+</body>
+</html>

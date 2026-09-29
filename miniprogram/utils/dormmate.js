@@ -34,5 +34,7 @@ function formatTime(date) {
   return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + ' ' +
     pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds())
 }
-module.exports = { STATUS, analyzeEnvironment, validateEnvironment, formatTime }
+const dormmateRules = { STATUS, analyzeEnvironment, validateEnvironment, formatTime }
+if (typeof module !== 'undefined' && module.exports) module.exports = dormmateRules
+if (typeof window !== 'undefined') window.DormMateRules = dormmateRules
 
