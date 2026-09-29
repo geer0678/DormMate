@@ -22,6 +22,7 @@
   <script defer src="dashboardNodeView.js"></script>
   <script defer src="dashboardIssueEvents.js"></script>
   <script defer src="dashboardBriefing.js"></script>
+  <script defer src="taskCBriefing.js"></script>
   <script defer src="dashboard.js"></script>
 </head>
 <body>
@@ -187,6 +188,15 @@
         <p class="trend-explanation" id="trendExplanation" role="status" aria-live="polite">历史数据不足，暂不生成趋势结论。</p>
         <p class="chart-footnote" id="feedStatus" aria-live="polite">正在连接 ws://127.0.0.1:9001；每个节点最多保留 50 条记录。</p>
         <p class="chart-footnote" id="mqttSyncStatus" role="status">MQTT 业务记录将按 recordId 同步到共享历史。</p>
+      </section>
+
+      <section class="task-c-section" id="taskCAnalysis" aria-labelledby="taskCHeading">
+        <div class="section-heading"><div><p class="eyebrow">C · 历史异常分析</p><h2 id="taskCHeading">Rule vs ML · <span id="taskCNode">dorm-a</span></h2></div>
+          <a class="task-c-report-link" href="../analysis/report.html#task-c-analysis">打开完整分析报告</a></div>
+        <p id="taskCStatus" role="status">正在读取离线分析结果…</p>
+        <div class="task-c-metrics" id="taskCMetrics"></div>
+        <p class="task-c-source" id="taskCSource"></p>
+        <p class="task-c-note">分析结果来自独立 Python 报告，不更改当前宿舍的九状态判断或 CloudBase 历史。</p>
       </section>
 
       <section class="shared-section" aria-labelledby="sharedHeading">

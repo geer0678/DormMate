@@ -509,6 +509,35 @@ alt="status"
 
 
 
+
+<!-- TASK_C_START -->
+<section class="section" id="task-c-analysis">
+<h2>历史异常分析 · Rule vs ML</h2>
+<p><strong>数据来源：</strong>独立 CSV：模拟历史样本 / 模拟待测样本；非真实传感器，未写入 CloudBase</p>
+<p>固定规则按 DormMate 现有九状态范围判断；Isolation Forest 根据该节点训练历史的温湿度分布判断偏离程度。
+ML 仅供辅助，不代表一定比固定规则正确。待判断新数据没有进入本次训练基线。</p>
+<p>异常分数使用 Isolation Forest decision_function：小于 0 判为 ML 异常，数值越小表示越偏离训练分布。</p>
+<p><strong>dorm-a</strong> · 训练历史 40 条 · 待判断 12 条<br>Rule 异常 4 条 · ML 异常 8 条 · 共同异常 4 条 · 仅 Rule 0 条 · 仅 ML 4 条 · 共同正常 4 条</p><p><strong>dorm-b</strong> · 训练历史 0 条 · 待判断 0 条<br>历史样本不足，暂不进行 ML 分析。</p><p><strong>dorm-c</strong> · 训练历史 0 条 · 待判断 0 条<br>历史样本不足，暂不进行 ML 分析。</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+<figure><img src="task_c_scatter.png" alt="待测温湿度散点图，区分 ML 正常和异常"><figcaption>温度与湿度散点：ML 异常点以叉号显示。</figcaption></figure>
+<figure><img src="task_c_comparison.png" alt="Rule 和 ML 四种结果组合数量对比"><figcaption>同一批待测记录的 Rule vs ML 数量。</figcaption></figure>
+</div>
+<h3>需要复核的分歧例子</h3><p>dorm-a 的 29.0℃ / 72%：Rule 正常，ML 异常。该节点训练历史只有 40 条，ML 对偏离常见模式的数值可能过于敏感；此判断值得复核，不能替代固定规则。</p>
+<h3>待判断记录</h3>
+<label>查看结果 <select id="taskCFilter"><option value="all">全部</option><option value="anomaly">任一方法异常</option>
+<option value="both_abnormal">共同异常</option><option value="rule_only">仅 Rule</option><option value="ml_only">仅 ML</option>
+<option value="both_normal">共同正常</option></select></label>
+<div style="overflow:auto"><table><thead><tr><th>时间</th><th>节点</th><th>温度</th><th>湿度</th><th>Rule 状态</th>
+<th>Rule 是否异常</th><th>ML 是否异常</th><th>异常分数</th><th>一致性</th></tr></thead>
+<tbody id="taskCRows"><tr data-comparison="both_normal"><td>2026-09-28T20:00:00.000Z</td><td>dorm-a</td><td>24.5℃</td><td>58%</td><td>正常</td><td>正常</td><td>正常</td><td>0.0192</td><td>一致</td></tr><tr data-comparison="both_normal"><td>2026-09-28T20:30:00.000Z</td><td>dorm-a</td><td>25.1℃</td><td>60%</td><td>正常</td><td>正常</td><td>正常</td><td>0.0210</td><td>一致</td></tr><tr data-comparison="ml_only"><td>2026-09-28T21:00:00.000Z</td><td>dorm-a</td><td>29.0℃</td><td>72%</td><td>正常</td><td>正常</td><td>异常</td><td>-0.1303</td><td>不一致</td></tr><tr data-comparison="both_abnormal"><td>2026-09-28T21:30:00.000Z</td><td>dorm-a</td><td>32.0℃</td><td>85%</td><td>偏热偏湿</td><td>异常</td><td>异常</td><td>-0.1303</td><td>一致</td></tr><tr data-comparison="both_abnormal"><td>2026-09-28T22:00:00.000Z</td><td>dorm-a</td><td>16.0℃</td><td>35%</td><td>偏冷偏干</td><td>异常</td><td>异常</td><td>-0.1770</td><td>一致</td></tr><tr data-comparison="both_normal"><td>2026-09-28T22:30:00.000Z</td><td>dorm-a</td><td>25.0℃</td><td>54%</td><td>正常</td><td>正常</td><td>正常</td><td>0.0089</td><td>一致</td></tr><tr data-comparison="ml_only"><td>2026-09-28T23:00:00.000Z</td><td>dorm-a</td><td>27.0℃</td><td>68%</td><td>正常</td><td>正常</td><td>异常</td><td>-0.1303</td><td>不一致</td></tr><tr data-comparison="both_abnormal"><td>2026-09-28T23:30:00.000Z</td><td>dorm-a</td><td>30.2℃</td><td>58%</td><td>偏热</td><td>异常</td><td>异常</td><td>-0.0732</td><td>一致</td></tr><tr data-comparison="both_abnormal"><td>2026-09-29T00:00:00.000Z</td><td>dorm-a</td><td>24.0℃</td><td>78%</td><td>偏湿</td><td>异常</td><td>异常</td><td>-0.0613</td><td>一致</td></tr><tr data-comparison="both_normal"><td>2026-09-29T00:30:00.000Z</td><td>dorm-a</td><td>23.8℃</td><td>55%</td><td>正常</td><td>正常</td><td>正常</td><td>0.0100</td><td>一致</td></tr><tr data-comparison="ml_only"><td>2026-09-29T01:00:00.000Z</td><td>dorm-a</td><td>18.1℃</td><td>42%</td><td>正常</td><td>正常</td><td>异常</td><td>-0.1770</td><td>不一致</td></tr><tr data-comparison="ml_only"><td>2026-09-29T01:30:00.000Z</td><td>dorm-a</td><td>26.0℃</td><td>40%</td><td>正常</td><td>正常</td><td>异常</td><td>-0.0760</td><td>不一致</td></tr></tbody></table></div>
+</section>
+<script>document.getElementById('taskCFilter').addEventListener('change', function () {
+  for (const row of document.querySelectorAll('#taskCRows tr')) {
+    row.hidden = this.value !== 'all' && (this.value === 'anomaly'
+      ? row.dataset.comparison === 'both_normal' : row.dataset.comparison !== this.value);
+  }
+});</script>
+<!-- TASK_C_END -->
 </body>
 
 </html>

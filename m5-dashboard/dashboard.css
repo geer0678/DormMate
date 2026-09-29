@@ -188,6 +188,16 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outlin
 .trend-explanation { margin: 14px 0 0; padding: 11px 14px; color: var(--ink); background: var(--paper); border-left: 3px solid var(--humidity); border-radius: 4px 9px 4px 9px; font-size: 12px; line-height: 1.6; }
 .chart-footnote { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
 .shared-section { margin-top: 34px; }
+.task-c-section { margin-top: 34px; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.task-c-section .section-heading { align-items: center; }
+.task-c-report-link { padding: 9px 13px; border: 1px solid var(--line); border-radius: 8px; color: var(--accent); text-decoration: none; font-size: 12px; }
+.task-c-report-link:hover { background: var(--accent-soft); }
+#taskCStatus, .task-c-note, .task-c-source { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.task-c-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.task-c-metrics div { display: grid; gap: 3px; padding: 13px; border-radius: 8px; background: #fbf7fa; }
+.task-c-metrics strong { color: var(--accent); font-size: 23px; font-variant-numeric: tabular-nums; }
+.task-c-metrics span { color: var(--muted); font-size: 11px; }
+@media (max-width: 650px) { .task-c-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .task-c-section .section-heading { align-items: start; flex-direction: column; } }
 .shared-section .section-heading { align-items: center; }
 .shared-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .history-scope-label { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }

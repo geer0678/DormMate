@@ -481,6 +481,7 @@
       lastBriefingContext = briefingContext
     }
     renderBriefing({ summary, overview, digest, trend, selectedNodeId: snapshot.selectedNodeId })
+    window.DormMateTaskCBriefing?.render(snapshot.selectedNodeId)
     const dashboardState = {
       nodeId: snapshot.selectedNodeId,
       mode: feed.mode,

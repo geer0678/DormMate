@@ -1,0 +1,13 @@
+﻿nodeId,temperature,humidity,status,time,source,rule_status,rule_abnormal,ml_anomaly,anomaly_score,comparison
+dorm-a,24.5,58.0,正常,2026-09-28T20:00:00.000Z,模拟待测样本,正常,False,False,0.019241674943745513,both_normal
+dorm-a,25.1,60.0,正常,2026-09-28T20:30:00.000Z,模拟待测样本,正常,False,False,0.020960811531516688,both_normal
+dorm-a,29.0,72.0,正常,2026-09-28T21:00:00.000Z,模拟待测样本,正常,False,True,-0.1302616837549604,ml_only
+dorm-a,32.0,85.0,偏热偏湿,2026-09-28T21:30:00.000Z,模拟待测样本,偏热偏湿,True,True,-0.1302616837549604,both_abnormal
+dorm-a,16.0,35.0,偏冷偏干,2026-09-28T22:00:00.000Z,模拟待测样本,偏冷偏干,True,True,-0.17701399552025832,both_abnormal
+dorm-a,25.0,54.0,正常,2026-09-28T22:30:00.000Z,模拟待测样本,正常,False,False,0.008904148621369512,both_normal
+dorm-a,27.0,68.0,正常,2026-09-28T23:00:00.000Z,模拟待测样本,正常,False,True,-0.1302616837549604,ml_only
+dorm-a,30.2,58.0,偏热,2026-09-28T23:30:00.000Z,模拟待测样本,偏热,True,True,-0.07315892818124237,both_abnormal
+dorm-a,24.0,78.0,偏湿,2026-09-29T00:00:00.000Z,模拟待测样本,偏湿,True,True,-0.06128796645652668,both_abnormal
+dorm-a,23.8,55.0,正常,2026-09-29T00:30:00.000Z,模拟待测样本,正常,False,False,0.00999940929387555,both_normal
+dorm-a,18.1,42.0,正常,2026-09-29T01:00:00.000Z,模拟待测样本,正常,False,True,-0.17701399552025832,ml_only
+dorm-a,26.0,40.0,正常,2026-09-29T01:30:00.000Z,模拟待测样本,正常,False,True,-0.07604533214776754,ml_only
